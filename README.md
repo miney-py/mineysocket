@@ -1,0 +1,54 @@
+# mineysocket - A network api mod for minetest
+
+The goal of this mod is to open minetest for other scripting languages.
+
+For that this mod opens a udp network port where it receives lua snippets to execute these inside the minetest api environment.
+That allows you to write a socket client in your favorite language to wrap api functions over network/internet.
+
+The reference implementation is miney (not released yet).
+
+## Requirements
+
+* luasockets
+* lua-cjson
+
+~~Mineysocket is currently only developed and tested under linux. But a minetest-server should run very well in the Windows Subsystem for Linux with a Debian Buster.~~
+
+**Update 2019/09: A windows minetest distribution bundled with luasocket and lua-cjson is nearly ready and will be published in the miney repo.**
+
+## Notes
+
+Clients can only run code after authentication and if the user has "server" privilege.
+
+This may change, but currently authenticated users can do anything in the minetest api, also change there own and other users privileges!
+
+**You use this at your own risk!**
+
+## Todo
+
+- [ ] Authentication without sending cleartext password
+- [ ] Implement limited user rights with a fixed set of available commands
+- [ ] Disable authentication for 127.0.0.1 clients
+- [ ] Catch json encode errors
+- [ ] Receive packages with multiple chunks
+- [ ] Callback functions
+- [ ] clientlist cleanup (delete unavailable/disconnected clients)
+
+## Installation with Debian Buster
+
+The latest minetest version is in the backports repository for buster, so it's very easy to install: https://wiki.minetest.net/Setting_up_a_server/Debian
+```
+apt install lua-socket lua-cjson
+cd /var/games/minetest-server/.minetest/mods
+git clone <clone url of this repo>
+```
+* Edit /var/games/minetest-server/.minetest/worlds/\<your_world\>/world.mt and add:
+```
+load_mod_mineysocket = true
+```
+* Connect at least once with minetest to your server and login with a username + password, to get you registered
+* Edit /etc/minetest/minetest.conf
+  * name = \<your_playername\>  # This gives you all privileges on your server
+  * secure.trusted_mods = mineysocket  # This is needed for luasocket and lua-cjson
+  * Optional but recommended:
+    * enable_rollback_recording = true  # This allows you to cleanup your world
