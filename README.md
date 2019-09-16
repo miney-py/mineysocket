@@ -9,6 +9,7 @@ The reference implementation is miney (not released yet).
 
 ## Requirements
 
+* 
 * luasockets
 * lua-cjson
 
@@ -18,7 +19,7 @@ The reference implementation is miney (not released yet).
 
 ## Notes
 
-Clients can only run code after authentication and if the user has "server" privilege.
+Clients can only run code after authentication and if the user has "server" privilege (or if connected from 127.0.0.1).
 
 This may change, but currently authenticated users can do anything in the minetest api, also change there own and other users privileges!
 
@@ -28,11 +29,12 @@ This may change, but currently authenticated users can do anything in the minete
 
 - [ ] Authentication without sending cleartext password
 - [ ] Implement limited user rights with a fixed set of available commands
-- [ ] Disable authentication for 127.0.0.1 clients
+- [x] ~~Disable authentication for 127.0.0.1 clients~~
 - [ ] Catch json encode errors
 - [ ] Receive packages with multiple chunks
-- [ ] Callback functions
-- [ ] clientlist cleanup (delete unavailable/disconnected clients)
+- [x] ~~Callback functions~~
+- [x] ~~clientlist cleanup (delete unavailable/disconnected clients)~~
+- [ ] Send basic events like player_joined or chatmessage
 
 ## Installation with Debian Buster
 

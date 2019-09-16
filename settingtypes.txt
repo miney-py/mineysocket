@@ -1,0 +1,4 @@
+# The UPD-Port mineysocket is listening. 
+miney.port (Port) int 29999
+# The IP mineysocket is listening on. With "127.0.0.1" only you can connect, with "0.0.0.0" others can connect.
+miney.ip (IP) string 127.0.0.1
