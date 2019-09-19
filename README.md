@@ -9,7 +9,6 @@ The reference implementation is miney (not released yet).
 
 ## Requirements
 
-* 
 * luasockets
 * lua-cjson
 
@@ -54,3 +53,35 @@ load_mod_mineysocket = true
   * secure.trusted_mods = mineysocket  # This is needed for luasocket and lua-cjson
   * Optional but recommended:
     * enable_rollback_recording = true  # This allows you to cleanup your world
+
+## Protocol description
+
+mineysocket is a simple JSON-based UDP-Protocol. Send a valid JSON-String with a tailing linebreak (`\n`) to the port 
+and mineysocket responds a JSON string with a tailing linebreak.
+
+### Authentication
+
+```
+>>> {"playername": "player", "password": "my_password"}\n
+<<< {result = ["auth_ok", "127.0.0.1:31928"]}\n
+``` 
+Send playername and password and you get auth_ok with your clientid (store this for later).
+
+On error you get a error object:
+```
+{error = "authentication error"}\n
+```
+Btw: All errors look like this, with different error descriptions.
+
+### Run lua code
+
+After authentication you are ready to send a command. An JSON object key is a command, in this example 
+"lua" to run lua code.
+```
+>>> {"lua": "return 12 + 2, \"something\""}\n
+<<< {"result": [14, "something"]}\n
+```
+Lua code runs inside a function definition, so you need to return value to get a result send back to you. 
+As you see, you can return multiple values.
+
+More commands will be added later.
