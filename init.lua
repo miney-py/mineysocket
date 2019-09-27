@@ -25,7 +25,7 @@ mineysocket.host_port = minetest.settings:get("miney_port")
 if not mineysocket.host_ip then mineysocket.host_ip = "127.0.0.1" end
 if not mineysocket.host_port then mineysocket.host_port = 29999 end
 
-local _debug = true  -- show all log levels
+mineysocket.debug = false  -- set to true to show all log levels
 
 -- Load external libs
 local ie
@@ -215,7 +215,7 @@ end
 
 -- just a logging function
 mineysocket.log = function (level, text, ip, port)
-  if _debug or level ~= "action" then
+  if mineysocket.debug or level ~= "action" then
     if ip and port then
       minetest.log(level, "mineysocket: " .. text .. " from " .. ip .. ":" .. port)
     else
@@ -233,6 +233,5 @@ end
 
 minetest.register_on_joinplayer(function(player) mineysocket.send_event({event = {"player_joined", player:get_player_name()}}) end)
 minetest.register_on_leaveplayer(function(player, timed_out) mineysocket.send_event({event = {"player_left", player:get_player_name(), timed_out}}) end)
-minetest.register_on_player_hpchange(function(player, hp_change, reason) mineysocket.send_event({event = {"player_left", player:get_player_name(), hp_change, reason}}) end, false)
-
+minetest.register_on_player_hpchange(function(player, hp_change, reason) mineysocket.send_event({event = {"player_hpchange", player:get_player_name(), hp_change, reason}}) end, false)
 -- END event registration
