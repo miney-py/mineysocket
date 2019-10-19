@@ -70,7 +70,7 @@ Send playername and password and you get auth_ok with your clientid (store this 
 
 On error you get a error object:
 ```
-{error = "authentication error"}\n
+<<< {"error": "authentication error"}\n
 ```
 Btw: All errors look like this, with different error descriptions.
 
@@ -94,37 +94,37 @@ Mineysocket sends JSON objects on global events.
 
 The server was gracefully stopped:
 ```
-<<< {"event": ["shutdown"]}
+<<< {"event": ["shutdown"]}\n
 ```
 
 A players health points changed:
 ```
-<<< {"event": ["player_hpchanged", "<playername>", "<hp change>", {'type': '<reason>', 'from': '<player or engine>'}]}
+<<< {"event": ["player_hpchanged", "<playername>", "<hp change>", {'type': '<reason>', 'from': '<player or engine>'}]}\n
 ```
 
 A player died:
 ```
-<<< {"event": ["player_died", "<playername>", "<reason>"]}
+<<< {"event": ["player_died", "<playername>", "<reason>"]}\n
 ```
 
 A player respawned:
 ```
-<<< {"event": ["player_respawned", "<playername>"]}
+<<< {"event": ["player_respawned", "<playername>"]}\n
 ```
 
 A player joined:
 ```
-<<< {"event": ["player_joined", "<playername>"]}
+<<< {"event": ["player_joined", "<playername>"]}\n
 ```
 
 A player left:
 ```
-<<< {"event": ["player_left", "<playername>"]}
+<<< {"event": ["player_left", "<playername>"]}\n
 ```
 
 An authentication failed:
 ```
-<<< {"event": ["auth_failed", "<name>", "<ip>"]}
+<<< {"event": ["auth_failed", "<name>", "<ip>"]}\n
 ```
 
 A player cheated with one of the following types:
@@ -135,10 +135,10 @@ A player cheated with one of the following types:
 * `dug_unbreakable`
 * `dug_too_fast`
 ```
-<<< {"event": ["player_cheated", "<playername>", {"type": "<type>"}]}
+<<< {"event": ["player_cheated", "<playername>", {"type": "<type>"}]}\n
 ```
 
 A new chat message:
 ```
-<<< {"event": ["chat_message", "<name>", "<message>"]}
+<<< {"event": ["chat_message", "<name>", "<message>"]}\n
 ```
