@@ -48,9 +48,8 @@ This may change, but currently authenticated users can do anything in the minete
 - [ ] Authentication without sending cleartext password
 - [ ] Implement limited user rights with a fixed set of available commands
 - [x] ~~Disable authentication for 127.0.0.1 clients~~
-- [ ] Catch json encode errors
+- [ ] Catch json encode errors to prevent crashs
 - [ ] Receive packages with multiple chunks
-- [x] ~~Callback functions~~
 - [x] ~~clientlist cleanup (delete unavailable/disconnected clients)~~
 - [x] ~~Send basic events like player_joined or chatmessage~~
 

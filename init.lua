@@ -221,24 +221,6 @@ mineysocket.send_to_all = function(data)
   end
 end
 
--- just a logging function
-mineysocket.log = function (level, text, ip, port)
-  if mineysocket.debug or level ~= "action" then
-    if ip and port then
-      minetest.log(level, "mineysocket: " .. text .. " from " .. ip .. ":" .. port)
-    else
-      minetest.log(level, "mineysocket: " .. ": " .. text)
-    end
-  end
-end
-
-
--- store the callback functions in the socket_clients table, to keep them nil-able
-mineysocket.register_callback = function(clientid, cb_id, description, func)
-  socket_clients[clientid]["callbacks"]["cb_id"] = {func = func, description = description}
-  return func
-end
-
 
 -- BEGIN global event registration
 minetest.register_on_shutdown(function() mineysocket.send_to_all({event = {"shutdown"}}) end)
@@ -251,3 +233,15 @@ minetest.register_on_auth_fail(function(name, ip) mineysocket.send_to_all({event
 minetest.register_on_cheat(function(player, cheat) mineysocket.send_to_all({event = {"player_cheated", player:get_player_name(), cheat}}) end)
 minetest.register_on_chat_message(function(name, message) mineysocket.send_to_all({event = {"chat_message", name, message}}) end)
 -- END global event registration
+
+
+-- just a logging function
+mineysocket.log = function (level, text, ip, port)
+  if mineysocket.debug or level ~= "action" then
+    if ip and port then
+      minetest.log(level, "mineysocket: " .. text .. " from " .. ip .. ":" .. port)
+    else
+      minetest.log(level, "mineysocket: " .. ": " .. text)
+    end
+  end
+end
