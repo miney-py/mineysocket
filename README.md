@@ -2,7 +2,7 @@
 
 The goal of this mod is to open minetest for other scripting languages.
 
-For that this mod opens a udp network port where it receives lua snippets to execute these inside the minetest api environment.
+For that this mod opens a UDP network port where it receives lua snippets to execute these inside the minetest.
 That allows you to write a socket client in your favorite language to wrap api functions over network/internet.
 
 The reference implementation is miney (not released yet).
@@ -12,9 +12,28 @@ The reference implementation is miney (not released yet).
 * luasockets
 * lua-cjson
 
-~~Mineysocket is currently only developed and tested under linux. But a minetest-server should run very well in the Windows Subsystem for Linux with a Debian Buster.~~
+You can build your own Windows Client with these build scripts: https://github.com/miney-py/minetest_buildscripts
 
-**Update 2019/09: A windows minetest distribution bundled with luasocket and lua-cjson is nearly ready and will be published in the miney repo.**
+Precompiled builds will be provided soon.
+
+### Installation with Debian Buster
+
+The latest minetest version is in the backports repository for buster, so it's very easy to install: https://wiki.minetest.net/Setting_up_a_server/Debian
+```
+apt install lua-socket lua-cjson
+cd /var/games/minetest-server/.minetest/mods
+git clone git@github.com:miney-py/mineysocket.git
+```
+* Edit /var/games/minetest-server/.minetest/worlds/\<your_world\>/world.mt and add:
+```
+load_mod_mineysocket = true
+```
+* Connect at least once with minetest to your server and login with a username + password, to get you registered
+* Edit /etc/minetest/minetest.conf
+  * name = \<your_playername\>  # This gives you all privileges on your server
+  * secure.trusted_mods = mineysocket  # This is needed for luasocket and lua-cjson
+  * Optional but recommended:
+    * enable_rollback_recording = true  # This allows you to cleanup your world
 
 ## Notes
 
@@ -33,26 +52,8 @@ This may change, but currently authenticated users can do anything in the minete
 - [ ] Receive packages with multiple chunks
 - [x] ~~Callback functions~~
 - [x] ~~clientlist cleanup (delete unavailable/disconnected clients)~~
-- [ ] Send basic events like player_joined or chatmessage
+- [x] ~~Send basic events like player_joined or chatmessage~~
 
-## Installation with Debian Buster
-
-The latest minetest version is in the backports repository for buster, so it's very easy to install: https://wiki.minetest.net/Setting_up_a_server/Debian
-```
-apt install lua-socket lua-cjson
-cd /var/games/minetest-server/.minetest/mods
-git clone <clone url of this repo>
-```
-* Edit /var/games/minetest-server/.minetest/worlds/\<your_world\>/world.mt and add:
-```
-load_mod_mineysocket = true
-```
-* Connect at least once with minetest to your server and login with a username + password, to get you registered
-* Edit /etc/minetest/minetest.conf
-  * name = \<your_playername\>  # This gives you all privileges on your server
-  * secure.trusted_mods = mineysocket  # This is needed for luasocket and lua-cjson
-  * Optional but recommended:
-    * enable_rollback_recording = true  # This allows you to cleanup your world
 
 ## Protocol description
 
@@ -63,7 +64,7 @@ and mineysocket responds a JSON string with a tailing linebreak.
 
 ```
 >>> {"playername": "player", "password": "my_password"}\n
-<<< {result = ["auth_ok", "127.0.0.1:31928"]}\n
+<<< {"result": ["auth_ok", "127.0.0.1:31928"], "id": "auth"}\n
 ``` 
 Send playername and password and you get auth_ok with your clientid (store this for later).
 
@@ -78,10 +79,66 @@ Btw: All errors look like this, with different error descriptions.
 After authentication you are ready to send a command. An JSON object key is a command, in this example 
 "lua" to run lua code.
 ```
->>> {"lua": "return 12 + 2, \"something\""}\n
-<<< {"result": [14, "something"]}\n
+>>> {"lua": "return 12 + 2, \"something\"", id="myrandomstring"}\n
+<<< {"result": [14, "something"], id="myrandomstring"}\n
 ```
 Lua code runs inside a function definition, so you need to return value to get a result send back to you. 
-As you see, you can return multiple values.
+As you see, you can return multiple values. 
+You can optional send an (random) id to identify your result, if you run multiple codes parallel.
 
 More commands will be added later.
+
+### Events
+
+Mineysocket sends JSON objects on global events.
+
+The server was gracefully stopped:
+```
+<<< {"event": ["shutdown"]}
+```
+
+A players health points changed:
+```
+<<< {"event": ["player_hpchanged", "<playername>", "<hp change>", {'type': '<reason>', 'from': '<player or engine>'}]}
+```
+
+A player died:
+```
+<<< {"event": ["player_died", "<playername>", "<reason>"]}
+```
+
+A player respawned:
+```
+<<< {"event": ["player_respawned", "<playername>"]}
+```
+
+A player joined:
+```
+<<< {"event": ["player_joined", "<playername>"]}
+```
+
+A player left:
+```
+<<< {"event": ["player_left", "<playername>"]}
+```
+
+An authentication failed:
+```
+<<< {"event": ["auth_failed", "<name>", "<ip>"]}
+```
+
+A player cheated with one of the following types:
+* `moved_too_fast`
+* `interacted_too_far`
+* `interacted_while_dead`
+* `finished_unknown_dig`
+* `dug_unbreakable`
+* `dug_too_fast`
+```
+<<< {"event": ["player_cheated", "<playername>", {"type": "<type>"}]}
+```
+
+A new chat message:
+```
+<<< {"event": ["chat_message", "<name>", "<message>"]}
+```
