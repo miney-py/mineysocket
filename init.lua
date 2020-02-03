@@ -63,6 +63,13 @@ local socket_clients = {}  -- a table with all connected clients with there opti
 minetest.register_globalstep(function(dtime)
   local data, ip, port, clientid
   data, ip, port = server:receivefrom()
+
+  -- simple alive check
+  if data == "ping\n" then
+    server:sendto("pong\n", ip, port)
+    return
+  end
+
   if data and string.find(data, "\n") then
     clientid = ip .. ":" .. port
 
