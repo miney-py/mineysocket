@@ -49,7 +49,7 @@ This may change, but currently authenticated users can do anything in the minete
 - [ ] Implement limited user rights with a fixed set of available commands
 - [x] ~~Disable authentication for 127.0.0.1 clients~~
 - [ ] Catch json encode errors to prevent crashs
-- [ ] Receive packages with multiple chunks
+- [x] ~~Receive packages with multiple chunks~~
 - [x] ~~clientlist cleanup (delete unavailable/disconnected clients)~~
 - [x] ~~Send basic events like player_joined or chatmessage~~
 
@@ -58,6 +58,15 @@ This may change, but currently authenticated users can do anything in the minete
 
 mineysocket is a simple JSON-based UDP-Protocol. Send a valid JSON-String with a tailing linebreak (`\n`) to the port 
 and mineysocket responds a JSON string with a tailing linebreak.
+
+### Ping
+
+A simple alive check and the only command implemented without json.
+
+```
+>>> ping\n
+<<< pong\n
+``` 
 
 ### Authentication
 
