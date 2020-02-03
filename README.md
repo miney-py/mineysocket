@@ -5,16 +5,14 @@ The goal of this mod is to open minetest for other scripting languages.
 For that this mod opens a UDP network port where it receives lua snippets to execute these inside the minetest.
 That allows you to write a socket client in your favorite language to wrap api functions over network/internet.
 
-The reference implementation is miney (not released yet).
-
 ## Requirements
 
 * luasockets
 * lua-cjson
 
-You can build your own Windows Client with these build scripts: https://github.com/miney-py/minetest_buildscripts
+You can build your own Windows Client with these build scripts: https://github.com/miney-py/miney_distribution
 
-Precompiled builds will be provided soon.
+There are also precompiled binarys available.
 
 ### Installation with Debian Buster
 
