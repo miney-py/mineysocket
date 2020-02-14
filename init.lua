@@ -76,41 +76,61 @@ minetest.register_globalstep(function(dtime)
     return
   end
 
-  if data and string.find(data, "\n") then
-
+  if data then
     clientid = ip .. ":" .. port
 
-    -- is it a known client, or do we need authentication?
-    if socket_clients[clientid] and socket_clients[clientid].auth == true then -- known client
-
-      -- store time of the last message for cleanup of old connection
+    if not socket_clients[clientid] then
+      socket_clients[clientid] = {}
       socket_clients[clientid].last_message = minetest.get_server_uptime()
-
-      -- parse data as json
-      local status, input = pcall(mineysocket.json.decode, data)
-
-      if not status then
-        minetest.log("error", "mineysocket: " .. mineysocket.json.encode({ error = input }))
-        mineysocket.log("error", "JSON-Error: " .. input, ip, port)
-        mineysocket.send(clientid, mineysocket.json.encode({ error = input }))
-        return
-      end
-
-      -- commands:
-      -- we run lua code
-      if input["lua"] then
-        run_lua(input, clientid, ip, port)
-        return
-      end
-
-      -- client requested something unimplemented
-      mineysocket.send(clientid, mineysocket.json.encode({ error = "Unknown command" }))
-
-    else
-      -- we need authentication
-      mineysocket.authenticate(data, clientid, ip, port)
     end
 
+    if not string.find(data, "\n") then
+      -- fill a buffer and wait for the linebreak
+      if not socket_clients[clientid].buffer then
+        socket_clients[clientid].buffer = data
+      else
+        socket_clients[clientid].buffer = socket_clients[clientid].buffer .. data
+      end
+      return
+
+    else
+
+      if socket_clients[clientid]["buffer"] then
+        data = socket_clients[clientid].buffer .. data
+        socket_clients[clientid].buffer = nil
+      end
+
+      -- is it a known client, or do we need authentication?
+      if socket_clients[clientid] and socket_clients[clientid].auth == true then -- known client
+
+        -- store time of the last message for cleanup of old connection
+        socket_clients[clientid].last_message = minetest.get_server_uptime()
+
+        -- parse data as json
+        local status, input = pcall(mineysocket.json.decode, data)
+
+        if not status then
+          minetest.log("error", "mineysocket: " .. mineysocket.json.encode({ error = input }))
+          mineysocket.log("error", "JSON-Error: " .. input, ip, port)
+          mineysocket.send(clientid, mineysocket.json.encode({ error = input }))
+          return
+        end
+
+        -- commands:
+        -- we run lua code
+        if input["lua"] then
+          run_lua(input, clientid, ip, port)
+          return
+        end
+
+        -- client requested something unimplemented
+        mineysocket.send(clientid, mineysocket.json.encode({ error = "Unknown command" }))
+
+      else
+        -- we need authentication
+        mineysocket.authenticate(data, clientid, ip, port)
+      end
+    end
   end
 
   -- cleanup old inactive connections after 10 minutes
@@ -118,6 +138,10 @@ minetest.register_globalstep(function(dtime)
     if minetest.get_server_uptime() - socket_clients[clientid].last_message > 600 then
       mineysocket.log("action", "Removed old connection", socket_clients[clientid].ip, socket_clients[clientid].port)
       socket_clients[clientid] = nil
+    end
+    -- cleanup unused buffers after 3 seconds
+    if socket_clients[clientid] and socket_clients[clientid]["buffer"] and minetest.get_server_uptime() - socket_clients[clientid].last_message > 3 then
+      socket_clients[clientid].buffer = nil
     end
   end
 end)
@@ -182,23 +206,36 @@ end
 
 -- authenticate clients
 mineysocket.authenticate = function(data, clientid, ip, port)
-  local input, err = mineysocket.json.decode(data)
-  if err then
-    mineysocket.log("error", "mineysocket.json.decode error: " .. err, ip, port)
+  local status, input = pcall(mineysocket.json.decode, data)
+  if not status then
+    minetest.log("error", "mineysocket: " .. mineysocket.json.encode({ error = input }))
+    mineysocket.log("error", "JSON-Error: " .. input, ip, port)
+    mineysocket.send(clientid, mineysocket.json.encode({ error = input }))
+    return
   end
 
-  if not err and input["playername"] and input["password"] then
+  if input["playername"] and input["password"] then
     local player = minetest.get_auth_handler().get_auth(input["playername"])
+
+    local player_table = {
+      ["auth"] = true,
+      playername = input["playername"],
+      ip = ip, port = port,
+      last_message = minetest.get_server_uptime(),
+      callbacks = {},
+      buffer = ""
+    }
+
     -- we skip authentication for 127.0.0.1 and just accept everything
     if ip == "127.0.0.1" then
       mineysocket.log("action", "Player '" .. input["playername"] .. "' connected successful", ip, port)
-      socket_clients[clientid] = { ["auth"] = true, playername = input["playername"], ip = ip, port = port, last_message = minetest.get_server_uptime(), callbacks = {} }
+      socket_clients[clientid] = player_table
       mineysocket.send(clientid, mineysocket.json.encode({ result = { "auth_ok", clientid }, id = "auth" }))
     else
       -- others need a valid playername and password
       if player and minetest.check_password_entry(input["playername"], player['password'], input["password"]) and minetest.check_player_privs(input["playername"], { server = true }) then
         mineysocket.log("action", "Player '" .. input["playername"] .. "' authentication successful", ip, port)
-        socket_clients[clientid] = { ["auth"] = true, playername = input["playername"], ip = ip, port = port, last_message = minetest.get_server_uptime(), callbacks = {} }
+        socket_clients[clientid] = player_table
         mineysocket.send(clientid, mineysocket.json.encode({ result = { "auth_ok", clientid }, id = "auth" }))
       else
         mineysocket.log("error", "Wrong playername ('" .. input["playername"] .. "') or password", ip, port)
@@ -217,17 +254,17 @@ mineysocket.send = function(clientid, data)
   local data = data .. "\n"  -- \n is the terminator
   local size = string.len(data)
 
-  local chunksize = 4096
+  local chunk_size = 4096
 
-  if size < chunksize then
+  if size < chunk_size then
     -- we send in one package
     server:sendto(data, socket_clients[clientid].ip, socket_clients[clientid].port)
 
   else
     -- we split into multiple packages
-    for i = 0, math.floor(size / chunksize) do
+    for i = 0, math.floor(size / chunk_size) do
       server:sendto(
-        string.sub(data, i * chunksize, chunksize + (i * chunksize) - 1),
+        string.sub(data, i * chunk_size, chunk_size + (i * chunk_size) - 1),
         socket_clients[clientid].ip,
         socket_clients[clientid].port
       )
