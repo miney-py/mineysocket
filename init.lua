@@ -218,7 +218,7 @@ mineysocket.authenticate = function(data, clientid, ip, port)
     local player = minetest.get_auth_handler().get_auth(input["playername"])
 
     local player_table = {
-      ["auth"] = true,
+      auth = true,
       playername = input["playername"],
       ip = ip, port = port,
       last_message = minetest.get_server_uptime(),
