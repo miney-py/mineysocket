@@ -29,7 +29,8 @@ if not mineysocket.host_port then
   mineysocket.host_port = 29999
 end
 
-mineysocket.debug = false  -- set to true to show all log levels
+mineysocket.debug = true  -- set to true to show all log levels
+mineysocket.max_clients = 10
 
 -- Load external libs
 local ie
@@ -39,6 +40,10 @@ end
 if not ie then
   error("mineysocket has to be added to the secure.trusted_mods in minetest.conf")
 end
+minetest.log("action", "before socket" .. package.path .. " " .. minetest.get_modpath("mineysocket"))
+--package.path = minetest.get_modpath("mineysocket") .. "\\?.lua;" .. package.path -- prepend the mod path
+--minetest.log("action", "before socket" .. package.path .. " " .. minetest.get_modpath("mineysocket"))
+
 local luasocket = ie.require("socket.core")
 if not luasocket then
   error("luasocket is not installed or was not found...")
@@ -49,13 +54,22 @@ if not mineysocket.json then
 end
 
 -- setup network server
-local server, err = luasocket.udp()
+local server, err = luasocket.tcp()
 if not server then
-  error("mineysocket: Socket error: " .. err)
-else
-  minetest.log("action", "mineysocket: " .. "listening on " .. mineysocket.host_ip .. ":" .. tostring(mineysocket.host_port))
+  minetest.log("action", err)
+  error("exit")
 end
-server:setsockname(mineysocket.host_ip, mineysocket.host_port)
+
+local bind, err = server:bind(mineysocket.host_ip, mineysocket.host_port)
+if not bind then
+  error("mineysocket: " .. err)
+end
+listen, err = server:listen(mineysocket.max_clients)
+if not listen then
+  error("mineysocket: Socket listen error: " .. err)
+end
+minetest.log("action", "mineysocket: " .. "listening on " .. mineysocket.host_ip .. ":" .. tostring(mineysocket.host_port))
+
 server:settimeout(0)
 mineysocket.host_ip, mineysocket.host_port = server:getsockname()
 if not mineysocket.host_ip or not mineysocket.host_port then
@@ -64,100 +78,130 @@ end
 
 local socket_clients = {}  -- a table with all connected clients with there options
 
-
 -- receive network data and process them
 minetest.register_globalstep(function(dtime)
-  local data, ip, port, clientid
-  data, ip, port = server:receivefrom()
-
-  -- simple alive check
-  if data == "ping\n" then
-    server:sendto("pong\n", ip, port)
-    return
-  end
-
-  if data then
-    clientid = ip .. ":" .. port
-
-    if not socket_clients[clientid] then
-      socket_clients[clientid] = {}
-      socket_clients[clientid].last_message = minetest.get_server_uptime()
-    end
-
-    if not string.find(data, "\n") then
-      -- fill a buffer and wait for the linebreak
-      if not socket_clients[clientid].buffer then
-        socket_clients[clientid].buffer = data
-      else
-        socket_clients[clientid].buffer = socket_clients[clientid].buffer .. data
-      end
-      return
-
-    else
-
-      if socket_clients[clientid]["buffer"] then
-        data = socket_clients[clientid].buffer .. data
-        socket_clients[clientid].buffer = nil
-      end
-
-      -- is it a known client, or do we need authentication?
-      if socket_clients[clientid] and socket_clients[clientid].auth == true then -- known client
-
-        -- store time of the last message for cleanup of old connection
-        socket_clients[clientid].last_message = minetest.get_server_uptime()
-
-        -- parse data as json
-        local status, input = pcall(mineysocket.json.decode, data)
-
-        if not status then
-          minetest.log("error", "mineysocket: " .. mineysocket.json.encode({ error = input }))
-          mineysocket.log("error", "JSON-Error: " .. input, ip, port)
-          mineysocket.send(clientid, mineysocket.json.encode({ error = input }))
-          return
-        end
-
-        -- commands:
-        -- we run lua code
-        if input["lua"] then
-          run_lua(input, clientid, ip, port)
-          return
-        end
-
-        -- client requested something unimplemented
-        mineysocket.send(clientid, mineysocket.json.encode({ error = "Unknown command" }))
-
-      else
-        -- we need authentication
-        mineysocket.authenticate(data, clientid, ip, port)
-      end
-    end
-  end
-
-  -- cleanup old inactive connections after 10 minutes
-  for clientid, values in pairs(socket_clients) do
-    if minetest.get_server_uptime() - socket_clients[clientid].last_message > 600 then
-      mineysocket.log("action", "Removed old connection", socket_clients[clientid].ip, socket_clients[clientid].port)
-      socket_clients[clientid] = nil
-    end
-    -- cleanup unused buffers after 3 seconds
-    if socket_clients[clientid] and socket_clients[clientid]["buffer"] and minetest.get_server_uptime() - socket_clients[clientid].last_message > 3 then
-      socket_clients[clientid].buffer = nil
-    end
-  end
+  mineysocket.receive()
 end)
 
 
 -- Clean shutdown
 minetest.register_on_shutdown(function()
-  minetest.log("action", "mineysocket: " .. "Closing port...")
+  minetest.log("action", "mineysocket: Closing port...")
+  for clientid, client in pairs(socket_clients) do
+    socket_clients[clientid].socket:close()
+  end
   server:close()
 end)
+
+
+-- receive data from clients
+mineysocket.receive = function()
+  local data, ip, port, clientid
+
+  -- look for new client connections
+  local client, err = server:accept()
+  if client then
+    ip, port = client:getpeername()
+    clientid = ip .. ":" .. port
+    mineysocket.log("action", "New connection from " .. ip .. " " .. port)
+
+    client:settimeout(0)
+    -- register the new client
+    if not socket_clients[clientid] then
+      socket_clients[clientid] = {}
+      socket_clients[clientid].socket = client
+      socket_clients[clientid].last_message = minetest.get_server_uptime()
+    end
+  else
+    if err ~= "timeout" then
+      mineysocket.log("error", "Connection error \"" .. err .. "\"")
+    end
+  end
+
+  -- receive data
+  for clientid, client in pairs(socket_clients) do
+    local complete_data, err, data = socket_clients[clientid].socket:receive("*a")
+    -- there are never complete_data, cause we don't receive lines
+    if err ~= "timeout" then
+      -- cleanup
+      if err == "closed" then
+        socket_clients[clientid] = nil
+        mineysocket.log("action", "Connection to ".. clientid .." was closed")
+        return
+      else
+        mineysocket.log("action", err)
+      end
+    end
+    if data and data ~= "" then
+      if not string.find(data, "\n") then
+        -- fill a buffer and wait for the linebreak
+        if not socket_clients[clientid].buffer then
+          socket_clients[clientid].buffer = data
+        else
+          socket_clients[clientid].buffer = socket_clients[clientid].buffer .. data
+        end
+        mineysocket.receive()
+        return
+
+      else
+
+        -- simple alive check
+        if data == "ping\n" then
+          socket_clients[clientid].socket:send("pong\n")
+          return
+        end
+
+        -- get data from buffer and reset em
+        if socket_clients[clientid]["buffer"] then
+          data = socket_clients[clientid].buffer .. data
+          socket_clients[clientid].buffer = nil
+        end
+
+        -- is it a known client, or do we need authentication?
+        if socket_clients[clientid] and socket_clients[clientid].auth == true then
+          -- known client
+
+          -- store time of the last message for cleanup of old connection
+          socket_clients[clientid].last_message = minetest.get_server_uptime()
+
+          -- parse data as json
+          local status, input = pcall(mineysocket.json.decode, data)
+
+          if not status then
+            minetest.log("error", data)
+            minetest.log("error", "mineysocket: " .. mineysocket.json.encode({ error = input }))
+            mineysocket.log("error", "JSON-Error: " .. input, ip, port)
+            mineysocket.send(clientid, mineysocket.json.encode({ error = "JSON decode error - " .. input }))
+            return
+          end
+
+          -- commands:
+          -- we run lua code
+          if input["lua"] then
+            run_lua(input, clientid, ip, port)
+            return
+          end
+
+          -- client requested something unimplemented
+          mineysocket.send(clientid, mineysocket.json.encode({ error = "Unknown command" }))
+
+        else
+          -- we need authentication
+          mineysocket.authenticate(data, clientid, ip, port, socket_clients[clientid].socket)
+        end
+      end
+    end
+  end
+end
 
 
 -- run lua code send by the client
 function run_lua(input, clientid, ip, port)
   local err
   local output = {}
+  local start_time
+
+  start_time = minetest.get_server_uptime()
 
   if input["id"] then
     output["id"] = input["id"]
@@ -172,7 +216,7 @@ function run_lua(input, clientid, ip, port)
 
   -- run
   local f, syntaxError = loadstring(input["lua"])
-  -- is there a way to get also warning like "Undeclared global variable ... accessed at ..."?
+  -- todo: is there a way to get also warning like "Undeclared global variable ... accessed at ..."?
 
   if f then
     local status, result1, result2, result3, result4 = pcall(f, clientid)  -- Get the clientid with "...". Example: "mineysocket.send(..., output)"
@@ -183,9 +227,9 @@ function run_lua(input, clientid, ip, port)
 
       output = mineysocket.json.encode(output)
       if string.len(output) > 120 then
-        mineysocket.log("action", string.sub(output, 0, 120) .. " ...", ip, port)
+        mineysocket.log("action", string.sub(output, 0, 120) .. " ..." .. " in " .. (minetest.get_server_uptime() - start_time) .. " seconds", ip, port)
       else
-        mineysocket.log("action", output, ip, port)
+        mineysocket.log("action", output .. " in " .. (minetest.get_server_uptime() - start_time) .. " seconds", ip, port)
       end
       mineysocket.send(clientid, output)
     else
@@ -205,7 +249,7 @@ end
 
 
 -- authenticate clients
-mineysocket.authenticate = function(data, clientid, ip, port)
+mineysocket.authenticate = function(data, clientid, ip, port, socket)
   local status, input = pcall(mineysocket.json.decode, data)
   if not status then
     minetest.log("error", "mineysocket: " .. mineysocket.json.encode({ error = input }))
@@ -223,7 +267,8 @@ mineysocket.authenticate = function(data, clientid, ip, port)
       ip = ip, port = port,
       last_message = minetest.get_server_uptime(),
       callbacks = {},
-      buffer = ""
+      buffer = "",
+      socket = socket
     }
 
     -- we skip authentication for 127.0.0.1 and just accept everything
@@ -258,16 +303,16 @@ mineysocket.send = function(clientid, data)
 
   if size < chunk_size then
     -- we send in one package
-    server:sendto(data, socket_clients[clientid].ip, socket_clients[clientid].port)
+    socket_clients[clientid].socket:send(data)
 
   else
     -- we split into multiple packages
     for i = 0, math.floor(size / chunk_size) do
-      server:sendto(
-        string.sub(data, i * chunk_size, chunk_size + (i * chunk_size) - 1),
-        socket_clients[clientid].ip,
-        socket_clients[clientid].port
+      socket_clients[clientid].socket:send(
+        string.sub(data, i * chunk_size, chunk_size + (i * chunk_size) - 1)
       )
+      luasocket.sleep(0.001)  -- Or buffer fills to fast
+      -- todo: Protocol change, that every chunked message needs a response before sending the next
     end
   end
 end

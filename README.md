@@ -2,7 +2,7 @@
 
 The goal of this mod is to open minetest for other scripting languages.
 
-For that this mod opens a UDP network port where it receives lua snippets to execute these inside the minetest.
+For that this mod opens a TCP network port where it receives lua snippets to execute these inside the minetest.
 That allows you to write a socket client in your favorite language to wrap api functions over network/internet.
 
 ## Requirements
@@ -54,7 +54,7 @@ This may change, but currently authenticated users can do anything in the minete
 
 ## Protocol description
 
-mineysocket is a simple JSON-based UDP-Protocol. Send a valid JSON-String with a tailing linebreak (`\n`) to the port 
+mineysocket is a simple JSON-based TCP protocol. Send a valid JSON-String with a tailing linebreak (`\n`) to the port 
 and mineysocket responds a JSON string with a tailing linebreak.
 
 ### Ping
