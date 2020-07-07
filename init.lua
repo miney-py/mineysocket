@@ -359,10 +359,12 @@ end)
 -- just a logging function
 mineysocket.log = function(level, text, ip, port)
   if mineysocket.debug or level ~= "action" then
-    if ip and port then
-      minetest.log(level, "mineysocket: " .. text .. " from " .. ip .. ":" .. port)
-    else
-      minetest.log(level, "mineysocket: " .. ": " .. text)
+    if text then
+      if ip and port then
+        minetest.log(level, "mineysocket: " .. text .. " from " .. ip .. ":" .. port)
+      else
+        minetest.log(level, "mineysocket: " .. ": " .. text)
+      end
     end
   end
 end
