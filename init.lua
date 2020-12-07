@@ -23,7 +23,8 @@ mineysocket.host_ip = minetest.settings:get("miney_ip")
 mineysocket.host_port = minetest.settings:get("miney_port")
 -- Workaround for bug, where default values return only nil
 if not mineysocket.host_ip then
-  mineysocket.host_ip = "127.0.0.1"
+  -- mineysocket.host_ip = "127.0.0.1"
+  mineysocket.host_ip = "0.0.0.0"
 end
 if not mineysocket.host_port then
   mineysocket.host_port = 29999
@@ -284,12 +285,12 @@ mineysocket.authenticate = function(data, clientid, ip, port, socket)
         mineysocket.send(clientid, mineysocket.json.encode({ result = { "auth_ok", clientid }, id = "auth" }))
       else
         mineysocket.log("error", "Wrong playername ('" .. input["playername"] .. "') or password", ip, port)
-        server:sendto(mineysocket.json.encode({ error = "authentication error" }) .. "\n", ip, port)
+        socket:send(mineysocket.json.encode({ error = "authentication error" }) .. "\n")
       end
     end
   else
     -- that wasn't a auth message
-    server:sendto(mineysocket.json.encode({ error = "authentication error" }) .. "\n", ip, port)
+    socket:send(mineysocket.json.encode({ error = "authentication error" }) .. "\n")
   end
 end
 
