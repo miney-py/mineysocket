@@ -23,8 +23,7 @@ mineysocket.host_ip = minetest.settings:get("miney_ip")
 mineysocket.host_port = minetest.settings:get("miney_port")
 -- Workaround for bug, where default values return only nil
 if not mineysocket.host_ip then
-  -- mineysocket.host_ip = "127.0.0.1"
-  mineysocket.host_ip = "0.0.0.0"
+  mineysocket.host_ip = "127.0.0.1"
 end
 if not mineysocket.host_port then
   mineysocket.host_port = 29999
