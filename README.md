@@ -23,7 +23,7 @@ Luckily there are some scripts to do that for you or you just download a precomp
 
 ### Installation with Debian Buster
 
-The latest minetest version is in the backports repository for buster, so it's very easy to install: https://wiki.minetest.net/Setting_up_a_server/Debian
+The latest minetest version is in the backport repository for buster, so it's very easy to install: https://wiki.minetest.net/Setting_up_a_server/Debian
 ```
 apt install lua-socket lua-cjson
 cd /var/games/minetest-server/.minetest/mods
@@ -38,7 +38,7 @@ load_mod_mineysocket = true
   * name = \<your_playername\>  # This gives you all privileges on your server
   * secure.trusted_mods = mineysocket  # This is needed for luasocket and lua-cjson
   * Optional but recommended:
-    * enable_rollback_recording = true  # This allows you to cleanup your world
+    * enable_rollback_recording = true  # This allows you to clean up your world
 
 ## Settings
 
@@ -52,11 +52,11 @@ mineysocket.host_ip = 127.0.0.1
 The IP mineysocket is listening on. 
 With "127.0.0.1" only you can connect, with "*" or "0.0.0.0" anyone in the network or internet can connect. 
  
-WARNING: It could be dangerous to open this to everyone in the intenet! Only change if you know what you are doing! If you don't know, let it at "127.0.0.1".
+WARNING: It could be dangerous to open this to everyone in the internet! Only change if you know what you are doing! If you don't know, let it at "127.0.0.1".
 ```
 mineysocket.host_port = 29999
 ```
-The TCP-Port mineysocket is listening. 
+The TCP port mineysocket is listening. 
 
 ## Notes
 
@@ -70,7 +70,7 @@ This may change, but currently authenticated users can do anything in the minete
 
 - [ ] Authentication without sending cleartext password
 - [ ] Implement limited user rights with a fixed set of available commands
-- [ ] Catch json encode errors to prevent crashs
+- [ ] Catch json encode errors to prevent crashes
 
 ## Protocol description
 
@@ -79,7 +79,7 @@ and mineysocket responds a JSON string with a tailing linebreak.
 
 ### Ping
 
-A simple alive check and the only command implemented without json.
+A simple alive check, and the only command implemented without json.
 
 ```
 >>> ping\n
@@ -123,7 +123,7 @@ The server was gracefully stopped:
 <<< {"event": ["shutdown"]}\n
 ```
 
-A players health points changed:
+A player's health points changed:
 ```
 <<< {"event": ["player_hpchanged", "<playername>", "<hp change>", {'type': '<reason>', 'from': '<player or engine>'}]}\n
 ```

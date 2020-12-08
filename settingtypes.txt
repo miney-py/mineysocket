@@ -1,8 +1,8 @@
-# The TCP-Port mineysocket is listening. 
+# The TCP port mineysocket is listening.
 mineysocket.host_port (Port) int 29999
 # The IP mineysocket is listening on. 
 # With "127.0.0.1" only you can connect, with "*" or "0.0.0.0" anyone in the network or internet can connect. 
 # 
 # WARNING: 
-# It could be dangerous to open this to everyone in the intenet! Only change if you know what you are doing! If you don't know, let it at "127.0.0.1".
+# It could be dangerous to open this to everyone in the internet! Only change if you know what you are doing! If you don't know, let it at "127.0.0.1".
 mineysocket.host_ip (IP) string 127.0.0.1
