@@ -19,8 +19,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 mineysocket = {}  -- namespace
 
 -- configuration
-mineysocket.host_ip = minetest.settings:get("miney_ip")
-mineysocket.host_port = minetest.settings:get("miney_port")
+mineysocket.host_ip = minetest.settings:get("mineysocket.host_ip")
+mineysocket.host_port = minetest.settings:get("mineysocket.host_port")
+
 -- Workaround for bug, where default values return only nil
 if not mineysocket.host_ip then
   mineysocket.host_ip = "127.0.0.1"
@@ -29,7 +30,7 @@ if not mineysocket.host_port then
   mineysocket.host_port = 29999
 end
 
-mineysocket.debug = true  -- set to true to show all log levels
+mineysocket.debug = false  -- set to true to show all log levels
 mineysocket.max_clients = 10
 
 -- Load external libs
@@ -40,9 +41,6 @@ end
 if not ie then
   error("mineysocket has to be added to the secure.trusted_mods in minetest.conf")
 end
-minetest.log("action", "before socket" .. package.path .. " " .. minetest.get_modpath("mineysocket"))
---package.path = minetest.get_modpath("mineysocket") .. "\\?.lua;" .. package.path -- prepend the mod path
---minetest.log("action", "before socket" .. package.path .. " " .. minetest.get_modpath("mineysocket"))
 
 local luasocket = ie.require("socket.core")
 if not luasocket then

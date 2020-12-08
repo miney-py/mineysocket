@@ -10,9 +10,16 @@ That allows you to write a socket client in your favorite language to wrap api f
 * luasockets
 * lua-cjson
 
-You can build your own Windows Client with these build scripts: https://github.com/miney-py/miney_distribution
+### Installation with Windows
 
-There are also precompiled binarys available.
+It's more complicated, because you can't just put some dlls in the right place. 
+You have to recompile minetest together with luasocket and lua-cjson. 
+
+Luckily there are some scripts to do that for you or you just download a precompiled minetest.
+
+* Precompiled binary: https://github.com/miney-py/minetest_windows/releases
+* Build script: https://github.com/miney-py/minetest_windows
+* Or use the miney windows distribution: https://github.com/miney-py/miney_distribution
 
 ### Installation with Debian Buster
 
@@ -33,11 +40,29 @@ load_mod_mineysocket = true
   * Optional but recommended:
     * enable_rollback_recording = true  # This allows you to cleanup your world
 
+## Settings
+
+Default is, that mineysocket listens on 127.0.0.1 on port 29999.
+
+You can change this in the minetest menu (Settings -> All Settings -> Mods -> mineysocket) or in the minetest.conf.
+
+```
+mineysocket.host_ip = 127.0.0.1
+```
+The IP mineysocket is listening on. 
+With "127.0.0.1" only you can connect, with "*" or "0.0.0.0" anyone in the network or internet can connect. 
+ 
+WARNING: It could be dangerous to open this to everyone in the intenet! Only change if you know what you are doing! If you don't know, let it at "127.0.0.1".
+```
+mineysocket.host_port = 29999
+```
+The TCP-Port mineysocket is listening. 
+
 ## Notes
 
 Clients can only run code after authentication and if the user has "server" privilege (or if connected from 127.0.0.1).
 
-This may change, but currently authenticated users can do anything in the minetest api, also change there own and other users privileges!
+This may change, but currently authenticated users can do anything in the minetest api, also change their own and other users privileges!
 
 **You use this at your own risk!**
 
@@ -45,12 +70,7 @@ This may change, but currently authenticated users can do anything in the minete
 
 - [ ] Authentication without sending cleartext password
 - [ ] Implement limited user rights with a fixed set of available commands
-- [x] ~~Disable authentication for 127.0.0.1 clients~~
 - [ ] Catch json encode errors to prevent crashs
-- [x] ~~Receive packages with multiple chunks~~
-- [x] ~~clientlist cleanup (delete unavailable/disconnected clients)~~
-- [x] ~~Send basic events like player_joined or chatmessage~~
-
 
 ## Protocol description
 
@@ -82,7 +102,7 @@ Btw: All errors look like this, with different error descriptions.
 
 ### Run lua code
 
-After authentication you are ready to send a command. An JSON object key is a command, in this example 
+After authentication, you are ready to send a command. An JSON object key is a command, in this example 
 "lua" to run lua code.
 ```
 >>> {"lua": "return 12 + 2, \"something\"", id="myrandomstring"}\n
@@ -90,7 +110,7 @@ After authentication you are ready to send a command. An JSON object key is a co
 ```
 Lua code runs inside a function definition, so you need to return value to get a result send back to you. 
 As you see, you can return multiple values. 
-You can optional send an (random) id to identify your result, if you run multiple codes parallel.
+Optional you can send a (random) id to identify your result, if you run multiple codes parallel.
 
 More commands will be added later.
 
