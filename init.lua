@@ -113,6 +113,7 @@ mineysocket.receive = function()
   else
     if err ~= "timeout" then
       mineysocket.log("error", "Connection error \"" .. err .. "\"")
+	  client:close()
     end
   end
 
@@ -120,7 +121,10 @@ mineysocket.receive = function()
   for clientid, client in pairs(socket_clients) do
     local complete_data, err, data = socket_clients[clientid].socket:receive("*a")
     -- there are never complete_data, cause we don't receive lines
+	-- Note: err is "timeout" every time when there are no client data, cause we set timeout to 0 and
+	-- we don't want to wait and block lua/minetest for clients to send data
     if err ~= "timeout" then
+	  socket_clients[clientid].socket:close()
       -- cleanup
       if err == "closed" then
         socket_clients[clientid] = nil
