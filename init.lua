@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 --]]
 
-mineysocket = {}  -- namespace
+mineysocket = {}  -- global namespace
 
 -- configuration
 mineysocket.host_ip = minetest.settings:get("mineysocket.host_ip")
@@ -32,6 +32,7 @@ end
 
 mineysocket.debug = false  -- set to true to show all log levels
 mineysocket.max_clients = 10
+local eom = "\r\n"  -- End of message marker
 
 -- Load external libs
 local ie
@@ -62,7 +63,7 @@ local bind, err = server:bind(mineysocket.host_ip, mineysocket.host_port)
 if not bind then
   error("mineysocket: " .. err)
 end
-listen, err = server:listen(mineysocket.max_clients)
+local listen, err = server:listen(mineysocket.max_clients)
 if not listen then
   error("mineysocket: Socket listen error: " .. err)
 end
@@ -94,10 +95,10 @@ end)
 
 -- receive data from clients
 mineysocket.receive = function()
-  local data, ip, port, clientid
+  local data, ip, port, clientid, client, err
 
   -- look for new client connections
-  local client, err = server:accept()
+  client, err = server:accept()
   if client then
     ip, port = client:getpeername()
     clientid = ip .. ":" .. port
@@ -109,6 +110,15 @@ mineysocket.receive = function()
       socket_clients[clientid] = {}
       socket_clients[clientid].socket = client
       socket_clients[clientid].last_message = minetest.get_server_uptime()
+	  socket_clients[clientid].buffer = ""
+	  
+	  if ip == "127.0.0.1" then  -- skip authentication for 127.0.0.1
+		socket_clients[clientid].auth = true
+		socket_clients[clientid].playername = "localhost"
+		socket_clients[clientid].ip = ip
+		socket_clients[clientid].port = port
+		socket_clients[clientid].callbacks = {}
+	  end
     end
   else
     if err ~= "timeout" then
@@ -135,28 +145,28 @@ mineysocket.receive = function()
       end
     end
     if data and data ~= "" then
-      if not string.find(data, "\n") then
+      if not string.find(data, eom) then
         -- fill a buffer and wait for the linebreak
-        if not socket_clients[clientid].buffer then
-          socket_clients[clientid].buffer = data
-        else
-          socket_clients[clientid].buffer = socket_clients[clientid].buffer .. data
-        end
-        mineysocket.receive()
-        return
-
+		if socket_clients[clientid].auth == true then  -- prevent dos attack 
+			if not socket_clients[clientid].buffer then
+			  socket_clients[clientid].buffer = data
+			else
+			  socket_clients[clientid].buffer = socket_clients[clientid].buffer .. data
+			end
+			mineysocket.receive()
+			return
+		end
       else
-
-        -- simple alive check
-        if data == "ping\n" then
-          socket_clients[clientid].socket:send("pong\n")
-          return
-        end
-
         -- get data from buffer and reset em
         if socket_clients[clientid]["buffer"] then
           data = socket_clients[clientid].buffer .. data
           socket_clients[clientid].buffer = nil
+        end
+		
+		-- simple alive check
+        if data == "ping" .. eom then
+          socket_clients[clientid].socket:send("pong" .. eom)
+          return
         end
 
         -- is it a known client, or do we need authentication?
@@ -170,7 +180,6 @@ mineysocket.receive = function()
           local status, input = pcall(mineysocket.json.decode, data)
 
           if not status then
-            minetest.log("error", data)
             minetest.log("error", "mineysocket: " .. mineysocket.json.encode({ error = input }))
             mineysocket.log("error", "JSON-Error: " .. input, ip, port)
             mineysocket.send(clientid, mineysocket.json.encode({ error = "JSON decode error - " .. input }))
@@ -183,6 +192,17 @@ mineysocket.receive = function()
             run_lua(input, clientid, ip, port)
             return
           end
+		  
+		  if input[""] then
+		    
+			return
+		  end
+		  
+		  -- handle reauthentication
+		  if input["playername"] and input["password"] then
+			mineysocket.authenticate(data, clientid, ip, port, socket_clients[clientid].socket)
+			return
+		  end
 
           -- client requested something unimplemented
           mineysocket.send(clientid, mineysocket.json.encode({ error = "Unknown command" }))
@@ -199,9 +219,8 @@ end
 
 -- run lua code send by the client
 function run_lua(input, clientid, ip, port)
-  local err
+  local start_time, err
   local output = {}
-  local start_time
 
   start_time = minetest.get_server_uptime()
 
@@ -286,19 +305,19 @@ mineysocket.authenticate = function(data, clientid, ip, port, socket)
         mineysocket.send(clientid, mineysocket.json.encode({ result = { "auth_ok", clientid }, id = "auth" }))
       else
         mineysocket.log("error", "Wrong playername ('" .. input["playername"] .. "') or password", ip, port)
-        socket:send(mineysocket.json.encode({ error = "authentication error" }) .. "\n")
+        socket:send(mineysocket.json.encode({ error = "authentication error" }) .. eom)
       end
     end
   else
     -- that wasn't a auth message
-    socket:send(mineysocket.json.encode({ error = "authentication error" }) .. "\n")
+    socket:send(mineysocket.json.encode({ error = "authentication error - malformed message" }) .. eom)
   end
 end
 
 
 -- send data to the client
 mineysocket.send = function(clientid, data)
-  local data = data .. "\n"  -- \n is the terminator
+  local data = data .. eom  -- eom is the terminator
   local size = string.len(data)
 
   local chunk_size = 4096
@@ -320,40 +339,42 @@ mineysocket.send = function(clientid, data)
 end
 
 -- send data to all connected clients
-mineysocket.send_to_all = function(data)
+mineysocket.send_event = function(data)
   for clientid, values in pairs(socket_clients) do
-    mineysocket.send(clientid, mineysocket.json.encode(data))
+	if socket_clients[clientid].callbacks[data["event"][0]] then
+		mineysocket.send(clientid, mineysocket.json.encode(data))
+	end
   end
 end
 
 
 -- BEGIN global event registration
 minetest.register_on_shutdown(function()
-  mineysocket.send_to_all({ event = { "shutdown" } })
+  mineysocket.send_event({ event = { "shutdown" } })
 end)
 minetest.register_on_player_hpchange(function(player, hp_change, reason)
-  mineysocket.send_to_all({ event = { "player_hpchanged", player:get_player_name(), hp_change, reason } })
+  mineysocket.send_event({ event = { "player_hpchanged", player:get_player_name(), hp_change, reason } })
 end, false)
 minetest.register_on_dieplayer(function(player, reason)
-  mineysocket.send_to_all({ event = { "player_died", player:get_player_name(), reason } })
+  mineysocket.send_event({ event = { "player_died", player:get_player_name(), reason } })
 end)
 minetest.register_on_respawnplayer(function(player)
-  mineysocket.send_to_all({ event = { "player_respawned", player:get_player_name() } })
+  mineysocket.send_event({ event = { "player_respawned", player:get_player_name() } })
 end)
 minetest.register_on_joinplayer(function(player)
-  mineysocket.send_to_all({ event = { "player_joined", player:get_player_name() } })
+  mineysocket.send_event({ event = { "player_joined", player:get_player_name() } })
 end)
 minetest.register_on_leaveplayer(function(player, timed_out)
-  mineysocket.send_to_all({ event = { "player_left", player:get_player_name(), timed_out } })
+  mineysocket.send_event({ event = { "player_left", player:get_player_name(), timed_out } })
 end)
 minetest.register_on_auth_fail(function(name, ip)
-  mineysocket.send_to_all({ event = { "auth_failed", name, ip } })
+  mineysocket.send_event({ event = { "auth_failed", name, ip } })
 end)
 minetest.register_on_cheat(function(player, cheat)
-  mineysocket.send_to_all({ event = { "player_cheated", player:get_player_name(), cheat } })
+  mineysocket.send_event({ event = { "player_cheated", player:get_player_name(), cheat } })
 end)
 minetest.register_on_chat_message(function(name, message)
-  mineysocket.send_to_all({ event = { "chat_message", name, message } })
+  mineysocket.send_event({ event = { "chat_message", name, message } })
 end)
 -- END global event registration
 
