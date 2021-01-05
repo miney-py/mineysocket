@@ -74,7 +74,7 @@ This may change, but currently authenticated users can do anything in the minete
 
 ## Protocol description
 
-mineysocket is a simple JSON-based TCP protocol. Send a valid JSON-String with a tailing linebreak (`\n`) to the port 
+mineysocket is a simple JSON-based TCP protocol. Send a valid JSON-String with a tailing linebreak (`\r\n`) to the port 
 and mineysocket responds a JSON string with a tailing linebreak.
 
 ### Ping
@@ -82,33 +82,35 @@ and mineysocket responds a JSON string with a tailing linebreak.
 A simple alive check, and the only command implemented without json.
 
 ```
->>> ping\n
-<<< pong\n
+>>> ping\r\n
+<<< pong\r\n
 ``` 
 
 ### Authentication
 
 ```
->>> {"playername": "player", "password": "my_password"}\n
-<<< {"result": ["auth_ok", "127.0.0.1:31928"], "id": "auth"}\n
+>>> {"playername": "player", "password": "my_password"}\r\n
+<<< {"result": ["auth_ok", "127.0.0.1:31928"], "id": "auth"}\r\n
 ``` 
-Send playername and password and you get auth_ok with your clientid (store this for later).
+Send playername and password and you get auth_ok with your clientid.
 
 On error you get a error object:
 ```
-<<< {"error": "authentication error"}\n
+<<< {"error": "authentication error"}\r\n
 ```
 Btw: All errors look like this, with different error descriptions.
+
+Connections from 127.0.0.1 don't need to authenticate.
 
 ### Run lua code
 
 After authentication, you are ready to send a command. An JSON object key is a command, in this example 
 "lua" to run lua code.
 ```
->>> {"lua": "return 12 + 2, \"something\"", id="myrandomstring"}\n
-<<< {"result": [14, "something"], id="myrandomstring"}\n
+>>> {"lua": "return 12 + 2, \"something\"", id="myrandomstring"}\r\n
+<<< {"result": [14, "something"], id="myrandomstring"}\r\n
 ```
-Lua code runs inside a function definition, so you need to return value to get a result send back to you. 
+Lua code runs inside a function definition, so you need to return a value to get a result send back to you. 
 As you see, you can return multiple values. 
 Optional you can send a (random) id to identify your result, if you run multiple codes parallel.
 
@@ -116,11 +118,12 @@ More commands will be added later.
 
 ### Events
 
-Mineysocket sends JSON objects on global events.
+Mineysocket can send JSON objects on global events. 
+This is currently disabled, and a function to enable events per user and event is in development.
 
 The server was gracefully stopped:
 ```
-<<< {"event": ["shutdown"]}\n
+<<< {"event": ["shutdown"]}\r\n
 ```
 
 A player's health points changed:
@@ -130,27 +133,27 @@ A player's health points changed:
 
 A player died:
 ```
-<<< {"event": ["player_died", "<playername>", "<reason>"]}\n
+<<< {"event": ["player_died", "<playername>", "<reason>"]}\r\n
 ```
 
 A player respawned:
 ```
-<<< {"event": ["player_respawned", "<playername>"]}\n
+<<< {"event": ["player_respawned", "<playername>"]}\r\n
 ```
 
 A player joined:
 ```
-<<< {"event": ["player_joined", "<playername>"]}\n
+<<< {"event": ["player_joined", "<playername>"]}\r\n
 ```
 
 A player left:
 ```
-<<< {"event": ["player_left", "<playername>"]}\n
+<<< {"event": ["player_left", "<playername>"]}\r\n
 ```
 
 An authentication failed:
 ```
-<<< {"event": ["auth_failed", "<name>", "<ip>"]}\n
+<<< {"event": ["auth_failed", "<name>", "<ip>"]}\r\n
 ```
 
 A player cheated with one of the following types:
@@ -161,10 +164,10 @@ A player cheated with one of the following types:
 * `dug_unbreakable`
 * `dug_too_fast`
 ```
-<<< {"event": ["player_cheated", "<playername>", {"type": "<type>"}]}\n
+<<< {"event": ["player_cheated", "<playername>", {"type": "<type>"}]}\r\n
 ```
 
 A new chat message:
 ```
-<<< {"event": ["chat_message", "<name>", "<message>"]}\n
+<<< {"event": ["chat_message", "<name>", "<message>"]}\r\n
 ```

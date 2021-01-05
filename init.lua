@@ -310,7 +310,7 @@ mineysocket.authenticate = function(data, clientid, ip, port, socket)
     end
   else
     -- that wasn't a auth message
-    socket:send(mineysocket.json.encode({ error = "authentication error - malformed message" }) .. eom)
+    socket:send(mineysocket.json.encode({ error = "authentication error" }) .. eom)
   end
 end
 
