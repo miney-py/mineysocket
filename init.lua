@@ -32,7 +32,7 @@ end
 
 mineysocket.debug = false  -- set to true to show all log levels
 mineysocket.max_clients = 10
-local eom = "\r\n"  -- End of message marker
+local eom = "\n"  -- End of message marker
 
 -- Load external libs
 local ie
