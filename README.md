@@ -70,7 +70,6 @@ This may change, but currently authenticated users can do anything in the minete
 
 - [ ] Authentication without sending cleartext password
 - [ ] Implement limited user rights with a fixed set of available commands
-- [ ] Catch json encode errors to prevent crashes
 
 ## Protocol description
 
@@ -119,44 +118,58 @@ More commands will be added later.
 ### Events
 
 Mineysocket can send JSON objects on global events. 
-This is currently disabled, and a function to enable events per user and event is in development.
 
-The server was gracefully stopped:
+To receive events, you need to register for this event. This example registers for `chat_message`:
+```
+>>> {"register_event": "chat_message"}\n
+```
+
+To unregister, do this:
+```
+>>> {"unregister_event": "chat_message"}\n
+```
+
+You can register for the following events.
+
+##### The server was gracefully stopped
 ```
 <<< {"event": ["shutdown"]}\n
 ```
 
-A player's health points changed:
+#####  A player's health points changed
 ```
 <<< {"event": ["player_hpchanged", "<playername>", "<hp change>", {'type': '<reason>', 'from': '<player or engine>'}]}\n
 ```
 
-A player died:
+##### A player died
 ```
 <<< {"event": ["player_died", "<playername>", "<reason>"]}\n
 ```
 
-A player respawned:
+##### A player respawned
 ```
 <<< {"event": ["player_respawned", "<playername>"]}\n
 ```
 
-A player joined:
+##### A player joined
 ```
 <<< {"event": ["player_joined", "<playername>"]}\n
 ```
 
-A player left:
+##### A player left
 ```
 <<< {"event": ["player_left", "<playername>"]}\n
 ```
 
-An authentication failed:
+##### An authentication failed
 ```
 <<< {"event": ["auth_failed", "<name>", "<ip>"]}\n
 ```
 
-A player cheated with one of the following types:
+##### A player cheated
+
+With one of the following types
+
 * `moved_too_fast`
 * `interacted_too_far`
 * `interacted_while_dead`
@@ -167,7 +180,7 @@ A player cheated with one of the following types:
 <<< {"event": ["player_cheated", "<playername>", {"type": "<type>"}]}\n
 ```
 
-A new chat message:
+##### A new chat message
 ```
 <<< {"event": ["chat_message", "<name>", "<message>"]}\n
 ```
