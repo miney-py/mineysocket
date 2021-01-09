@@ -73,7 +73,7 @@ This may change, but currently authenticated users can do anything in the minete
 
 ## Protocol description
 
-mineysocket is a simple JSON-based TCP protocol. Send a valid JSON-String with a tailing linebreak (`\r\n`) to the port 
+mineysocket is a simple JSON-based TCP protocol. Send a valid JSON-String with a tailing linebreak (`\n`) to the port 
 and mineysocket responds a JSON string with a tailing linebreak.
 
 ### Ping
@@ -81,21 +81,21 @@ and mineysocket responds a JSON string with a tailing linebreak.
 A simple alive check, and the only command implemented without json.
 
 ```
->>> ping\r\n
-<<< pong\r\n
+>>> ping\n
+<<< pong\n
 ``` 
 
 ### Authentication
 
 ```
->>> {"playername": "player", "password": "my_password"}\r\n
-<<< {"result": ["auth_ok", "127.0.0.1:31928"], "id": "auth"}\r\n
+>>> {"playername": "player", "password": "my_password"}\n
+<<< {"result": ["auth_ok", "127.0.0.1:31928"], "id": "auth"}\n
 ``` 
 Send playername and password and you get auth_ok with your clientid.
 
 On error you get a error object:
 ```
-<<< {"error": "authentication error"}\r\n
+<<< {"error": "authentication error"}\n
 ```
 Btw: All errors look like this, with different error descriptions.
 
@@ -106,8 +106,8 @@ Connections from 127.0.0.1 don't need to authenticate.
 After authentication, you are ready to send a command. An JSON object key is a command, in this example 
 "lua" to run lua code.
 ```
->>> {"lua": "return 12 + 2, \"something\"", id="myrandomstring"}\r\n
-<<< {"result": [14, "something"], id="myrandomstring"}\r\n
+>>> {"lua": "return 12 + 2, \"something\"", id="myrandomstring"}\n
+<<< {"result": [14, "something"], id="myrandomstring"}\n
 ```
 Lua code runs inside a function definition, so you need to return a value to get a result send back to you. 
 As you see, you can return multiple values. 
@@ -121,14 +121,19 @@ Mineysocket can send JSON objects on global events.
 
 To receive events, you need to register for this event. This example registers for `chat_message`:
 ```
->>> {"register_event": "chat_message"}\r\n
+>>> {"register_event": "chat_message"}\n
+```
+
+To unregister, do this:
+```
+>>> {"unregister_event": "chat_message"}\n
 ```
 
 You can register for the following events.
 
 ##### The server was gracefully stopped
 ```
-<<< {"event": ["shutdown"]}\r\n
+<<< {"event": ["shutdown"]}\n
 ```
 
 #####  A player's health points changed
@@ -138,27 +143,27 @@ You can register for the following events.
 
 ##### A player died
 ```
-<<< {"event": ["player_died", "<playername>", "<reason>"]}\r\n
+<<< {"event": ["player_died", "<playername>", "<reason>"]}\n
 ```
 
 ##### A player respawned
 ```
-<<< {"event": ["player_respawned", "<playername>"]}\r\n
+<<< {"event": ["player_respawned", "<playername>"]}\n
 ```
 
 ##### A player joined
 ```
-<<< {"event": ["player_joined", "<playername>"]}\r\n
+<<< {"event": ["player_joined", "<playername>"]}\n
 ```
 
 ##### A player left
 ```
-<<< {"event": ["player_left", "<playername>"]}\r\n
+<<< {"event": ["player_left", "<playername>"]}\n
 ```
 
 ##### An authentication failed
 ```
-<<< {"event": ["auth_failed", "<name>", "<ip>"]}\r\n
+<<< {"event": ["auth_failed", "<name>", "<ip>"]}\n
 ```
 
 ##### A player cheated
@@ -172,10 +177,10 @@ With one of the following types
 * `dug_unbreakable`
 * `dug_too_fast`
 ```
-<<< {"event": ["player_cheated", "<playername>", {"type": "<type>"}]}\r\n
+<<< {"event": ["player_cheated", "<playername>", {"type": "<type>"}]}\n
 ```
 
 ##### A new chat message
 ```
-<<< {"event": ["chat_message", "<name>", "<message>"]}\r\n
+<<< {"event": ["chat_message", "<name>", "<message>"]}\n
 ```
