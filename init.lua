@@ -32,7 +32,6 @@ end
 
 mineysocket.debug = false  -- set to true to show all log levels
 mineysocket.max_clients = 10
-local eom = "\r\n"  -- End of message marker
 
 -- Load external libs
 local ie
@@ -112,12 +111,11 @@ mineysocket.receive = function()
       socket_clients[clientid].socket = client
       socket_clients[clientid].last_message = minetest.get_server_uptime()
       socket_clients[clientid].buffer = ""
+      socket_clients[clientid].eom = nil
 
       if ip == "127.0.0.1" then  -- skip authentication for 127.0.0.1
         socket_clients[clientid].auth = true
         socket_clients[clientid].playername = "localhost"
-        socket_clients[clientid].ip = ip
-        socket_clients[clientid].port = port
         socket_clients[clientid].callbacks = {}
       else
         socket_clients[clientid].auth = false
@@ -151,7 +149,7 @@ mineysocket.receive = function()
       -- store time of the last message for cleanup of old connection
       socket_clients[clientid].last_message = minetest.get_server_uptime()
 
-      if not string.find(data, eom) then
+      if not string.find(data, "\n") then
         -- fill a buffer and wait for the linebreak
         if not socket_clients[clientid].buffer then
           socket_clients[clientid].buffer = data
@@ -172,9 +170,18 @@ mineysocket.receive = function()
           socket_clients[clientid].buffer = nil
         end
 
+        -- we try to find the eom message terminator for this session
+        if socket_clients[clientid].eom == nil then
+          if string.sub(data, -2) == "\r\n" then
+            socket_clients[clientid].eom = "\r\n"
+          else
+            socket_clients[clientid].eom = "\n"
+          end
+        end
+
         -- simple alive check
-        if data == "ping" .. eom then
-          socket_clients[clientid].socket:send("pong" .. eom)
+        if data == "ping" .. socket_clients[clientid].eom then
+          socket_clients[clientid].socket:send("pong" .. socket_clients[clientid].eom)
           return
         end
 
@@ -201,6 +208,18 @@ mineysocket.receive = function()
           -- append event to callback list
           if input["register_event"] then
             socket_clients[clientid].callbacks[#socket_clients[clientid].callbacks+1] = input["register_event"]
+            result = mineysocket.json.encode({ result = "ok" })
+          end
+
+          -- append event to callback list
+          if input["unregister_event"] then
+            socket_clients[clientid].callbacks[#socket_clients[clientid].callbacks+1] = input["register_event"]
+            for index, value in pairs(socket_clients[clientid].callbacks) do
+              if value == input["unregister_event"] then
+                table.remove( socket_clients[clientid].callbacks, index )
+                break
+              end
+            end
             result = mineysocket.json.encode({ result = "ok" })
           end
 
@@ -286,41 +305,31 @@ end
 mineysocket.authenticate = function(input, clientid, ip, port, socket)
     local player = minetest.get_auth_handler().get_auth(input["playername"])
 
-    local player_table = {
-      auth = true,
-      playername = input["playername"],
-      ip = ip, port = port,
-      last_message = minetest.get_server_uptime(),
-      callbacks = {},
-      buffer = "",
-      socket = socket
-    }
-
     -- we skip authentication for 127.0.0.1 and just accept everything
     if ip == "127.0.0.1" then
       mineysocket.log("action", "Player '" .. input["playername"] .. "' connected successful", ip, port)
-      socket_clients[clientid] = player_table
+      socket_clients[clientid].playername = input["playername"]
+      return mineysocket.json.encode({ result = { "auth_ok", clientid }, id = "auth" })
     else
       -- others need a valid playername and password
       if player and minetest.check_password_entry(input["playername"], player['password'], input["password"]) and minetest.check_player_privs(input["playername"], { server = true }) then
         mineysocket.log("action", "Player '" .. input["playername"] .. "' authentication successful", ip, port)
-        socket_clients[clientid] = player_table
+        socket_clients[clientid].auth = true
+        socket_clients[clientid].playername = input["playername"]
+        socket_clients[clientid].callbacks = {}
+        return mineysocket.json.encode({ result = { "auth_ok", clientid }, id = "auth" })
       else
         mineysocket.log("error", "Wrong playername ('" .. input["playername"] .. "') or password", ip, port)
         socket_clients[clientid].auth = false
+        return mineysocket.json.encode({ error = "authentication error" })
       end
-    end
-    if socket_clients[clientid].auth == true then
-      return mineysocket.json.encode({ result = { "auth_ok", clientid }, id = "auth" })
-    else
-      return mineysocket.json.encode({ error = "authentication error" })
     end
 end
 
 
 -- send data to the client
 mineysocket.send = function(clientid, data)
-  local data = data .. eom  -- eom is the terminator
+  local data = data .. socket_clients[clientid]["eom"]  -- eom is the terminator
   local size = string.len(data)
 
   local chunk_size = 4096
@@ -328,7 +337,6 @@ mineysocket.send = function(clientid, data)
   if size < chunk_size then
     -- we send in one package
     socket_clients[clientid].socket:send(data)
-
   else
     -- we split into multiple packages
     for i = 0, math.floor(size / chunk_size) do
