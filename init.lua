@@ -116,7 +116,7 @@ mineysocket.receive = function()
       if ip == "127.0.0.1" then  -- skip authentication for 127.0.0.1
         socket_clients[clientid].auth = true
         socket_clients[clientid].playername = "localhost"
-        socket_clients[clientid].callbacks = {}
+        socket_clients[clientid].events = {}
       else
         socket_clients[clientid].auth = false
       end
@@ -170,6 +170,8 @@ mineysocket.receive = function()
           socket_clients[clientid].buffer = nil
         end
 
+        mineysocket.log("action", "Received: \n" .. data)
+
         -- we try to find the eom message terminator for this session
         if socket_clients[clientid].eom == nil then
           if string.sub(data, -2) == "\r\n" then
@@ -207,20 +209,12 @@ mineysocket.receive = function()
 
           -- append event to callback list
           if input["register_event"] then
-            socket_clients[clientid].callbacks[#socket_clients[clientid].callbacks+1] = input["register_event"]
-            result = mineysocket.json.encode({ result = "ok" })
+            result = mineysocket.register_event(clientid, input["register_event"])
           end
 
           -- append event to callback list
           if input["unregister_event"] then
-            socket_clients[clientid].callbacks[#socket_clients[clientid].callbacks+1] = input["register_event"]
-            for index, value in pairs(socket_clients[clientid].callbacks) do
-              if value == input["unregister_event"] then
-                table.remove( socket_clients[clientid].callbacks, index )
-                break
-              end
-            end
-            result = mineysocket.json.encode({ result = "ok" })
+            result = mineysocket.unregister_event(clientid, input["unregister_event"])
           end
 
           -- handle reauthentication
@@ -228,9 +222,14 @@ mineysocket.receive = function()
             result = mineysocket.authenticate(input, clientid, ip, port, socket_clients[clientid].socket)
           end
 
+          -- reattach id
+          if input["id"] then
+            result["id"] = input["id"]
+          end
+
           -- send result
           if result ~= false then
-            mineysocket.send(clientid, result)
+            mineysocket.send(clientid, mineysocket.json.encode(result))
           else
             mineysocket.send(clientid, mineysocket.json.encode({ error = "Unknown command" }))
           end
@@ -256,10 +255,6 @@ function run_lua(input, clientid, ip, port)
 
   start_time = minetest.get_server_uptime()
 
-  if input["id"] then
-    output["id"] = input["id"]
-  end
-
   -- log the (shortend) code
   if string.len(input["lua"]) > 120 then
     mineysocket.log("action", "execute: " .. string.sub(input["lua"], 0, 120) .. " ...", ip, port)
@@ -272,17 +267,18 @@ function run_lua(input, clientid, ip, port)
   -- todo: is there a way to get also warning like "Undeclared global variable ... accessed at ..."?
 
   if f then
-    local status, result1, result2, result3, result4 = pcall(f, clientid)  -- Get the clientid with "...". Example: "mineysocket.send(..., output)"
+    local status, result1, result2, result3, result4, result5 = pcall(f, clientid)  -- Get the clientid with "...". Example: "mineysocket.send(..., output)"
     -- is there a more elegant way for unlimited results?
 
     if status then
-      output["result"] = { result1, result2, result3, result4 }
-
-      output = mineysocket.json.encode(output)
-      if string.len(output) > 120 then
-        mineysocket.log("action", string.sub(output, 0, 120) .. " ..." .. " in " .. (minetest.get_server_uptime() - start_time) .. " seconds", ip, port)
-      else
-        mineysocket.log("action", output .. " in " .. (minetest.get_server_uptime() - start_time) .. " seconds", ip, port)
+      output["result"] = { result1, result2, result3, result4, result5 }
+      if mineysocket.debug then
+        local json_output = mineysocket.json.encode(output)
+        if string.len(json_output) > 120 then
+          mineysocket.log("action", string.sub(json_output, 0, 120) .. " ..." .. " in " .. (minetest.get_server_uptime() - start_time) .. " seconds", ip, port)
+        else
+          mineysocket.log("action", json_output .. " in " .. (minetest.get_server_uptime() - start_time) .. " seconds", ip, port)
+        end
       end
       return output
     else
@@ -296,7 +292,7 @@ function run_lua(input, clientid, ip, port)
   if err then
     output["error"] = err
     mineysocket.log("error", "Error " .. err .. " in command", ip, port)
-    return mineysocket.json.encode(output)
+    return output
   end
 end
 
@@ -309,19 +305,19 @@ mineysocket.authenticate = function(input, clientid, ip, port, socket)
     if ip == "127.0.0.1" then
       mineysocket.log("action", "Player '" .. input["playername"] .. "' connected successful", ip, port)
       socket_clients[clientid].playername = input["playername"]
-      return mineysocket.json.encode({ result = { "auth_ok", clientid }, id = "auth" })
+      return { result = { "auth_ok", clientid }, id = "auth" }
     else
       -- others need a valid playername and password
       if player and minetest.check_password_entry(input["playername"], player['password'], input["password"]) and minetest.check_player_privs(input["playername"], { server = true }) then
         mineysocket.log("action", "Player '" .. input["playername"] .. "' authentication successful", ip, port)
         socket_clients[clientid].auth = true
         socket_clients[clientid].playername = input["playername"]
-        socket_clients[clientid].callbacks = {}
-        return mineysocket.json.encode({ result = { "auth_ok", clientid }, id = "auth" })
+        socket_clients[clientid].events = {}
+        return { result = { "auth_ok", clientid }, id = "auth" }
       else
         mineysocket.log("error", "Wrong playername ('" .. input["playername"] .. "') or password", ip, port)
         socket_clients[clientid].auth = false
-        return mineysocket.json.encode({ error = "authentication error" })
+        return { error = "authentication error" }
       end
     end
 end
@@ -349,7 +345,25 @@ mineysocket.send = function(clientid, data)
   end
 end
 
--- send data to all connected clients
+-- register for event
+mineysocket.register_event = function(clientid, eventname)
+  socket_clients[clientid].events[#socket_clients[clientid].events+1] = eventname
+  return { result = "ok" }
+end
+
+-- unregister for event
+mineysocket.unregister_event = function(clientid, eventname)
+  for index, value in pairs(socket_clients[clientid].events) do
+    if value == eventname then
+      table.remove( socket_clients[clientid].events, index )
+      break
+    end
+  end
+  return { result = "ok" }
+end
+
+
+-- send event data to clients, who are registered for this event
 mineysocket.send_event = function(data)
   local function has_value (tab, val)
     for index, value in ipairs(tab) do
@@ -359,10 +373,8 @@ mineysocket.send_event = function(data)
   end
 
   for clientid, values in pairs(socket_clients) do
-    mineysocket.log("error", "event..." .. mineysocket.json.encode(data["event"][1]))
-    mineysocket.log("error", "callbacks..." .. mineysocket.json.encode(socket_clients[clientid].callbacks))
-    if has_value(socket_clients[clientid].callbacks, data["event"][1]) then
-      mineysocket.log("error", "Sending event..." .. mineysocket.json.encode(data["event"][1]))
+    if has_value(socket_clients[clientid].events, data["event"][1]) then
+      mineysocket.log("action", "Sending event: " .. mineysocket.json.encode(data["event"][1]))
       mineysocket.send(clientid, mineysocket.json.encode(data))
     end
   end
