@@ -5,6 +5,8 @@ The goal of this mod is to open minetest for other scripting languages.
 For that this mod opens a TCP network port where it receives lua snippets to execute these inside the minetest.
 That allows you to write a socket client in your favorite language to wrap api functions over network/internet.
 
+**The reference implementation is [Miney](https://github.com/miney-py/miney), a python interface to minetest.**
+
 ## Requirements
 
 * luasockets
@@ -15,11 +17,19 @@ That allows you to write a socket client in your favorite language to wrap api f
 It's more complicated, because you can't just put some dlls in the right place. 
 You have to recompile minetest together with luasocket and lua-cjson. 
 
-Luckily there are some scripts to do that for you or you just download a precompiled minetest.
+Luckily there are some scripts to do that for you or you just download a precompiled binary that includes all you need.
 
-* Precompiled binary: https://github.com/miney-py/minetest_windows/releases
-* Build script: https://github.com/miney-py/minetest_windows
-* Or use the miney windows distribution: https://github.com/miney-py/miney_distribution
+* **Miney windows distribution: https://github.com/miney-py/miney_distribution**
+
+  The miney distribution is an all-in-one bundle of minetest, mineysocket, python, miney and a launcher for quickstart.
+
+* **Precompiled binary: https://github.com/miney-py/minetest_windows/releases**
+  
+  Just minetest with mineysocket, nothing else
+
+* **Build script: https://github.com/miney-py/minetest_windows**
+
+  Use the build script yourself, to compile binaries.
 
 ### Installation with Debian Buster
 
@@ -33,12 +43,12 @@ git clone git@github.com:miney-py/mineysocket.git
 ```
 load_mod_mineysocket = true
 ```
-* Connect at least once with minetest to your server and login with a username + password, to get you registered
 * Edit /etc/minetest/minetest.conf
   * name = \<your_playername\>  # This gives you all privileges on your server
   * secure.trusted_mods = mineysocket  # This is needed for luasocket and lua-cjson
   * Optional but recommended:
     * enable_rollback_recording = true  # This allows you to clean up your world
+* Connect at least once with minetest to your server and login with a username + password, to get you registered.
 
 ## Settings
 
@@ -52,7 +62,7 @@ mineysocket.host_ip = 127.0.0.1
 The IP mineysocket is listening on. 
 With "127.0.0.1" only you can connect, with "*" or "0.0.0.0" anyone in the network or internet can connect. 
  
-WARNING: It could be dangerous to open this to everyone in the internet! Only change if you know what you are doing! If you don't know, let it at "127.0.0.1".
+**WARNING: It could be dangerous to open this to everyone in the internet! Only change if you know what you are doing! If you don't know, let it at "127.0.0.1".**
 ```
 mineysocket.host_port = 29999
 ```
