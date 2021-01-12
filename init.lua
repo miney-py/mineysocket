@@ -364,18 +364,22 @@ end
 
 
 -- send event data to clients, who are registered for this event
-mineysocket.send_event = function(data)
+mineysocket.send_event = function(name, parameter)
   local function has_value (tab, val)
     for index, value in ipairs(tab) do
         if value == val then return true end
     end
     return false
   end
-
   for clientid, values in pairs(socket_clients) do
-    if has_value(socket_clients[clientid].events, data["event"][1]) then
-      mineysocket.log("action", "Sending event: " .. mineysocket.json.encode(data["event"][1]))
-      mineysocket.send(clientid, mineysocket.json.encode(data))
+    if has_value(socket_clients[clientid].events, name) then
+      if parameter then
+        mineysocket.log("action", "Sending event: " .. name .. " with parameter: " .. mineysocket.json.encode(parameter))
+        mineysocket.send(clientid, mineysocket.json.encode({ event = name, params = parameter }))
+      else
+        mineysocket.log("action", "Sending event: " .. name)
+        mineysocket.send(clientid, mineysocket.json.encode({ event = name }))
+      end
     end
   end
 end
@@ -383,31 +387,31 @@ end
 
 -- BEGIN global event registration
 minetest.register_on_shutdown(function()
-  mineysocket.send_event({ event = { "shutdown" } })
+  mineysocket.send_event("shutdown")
 end)
 minetest.register_on_player_hpchange(function(player, hp_change, reason)
-  mineysocket.send_event({ event = { "player_hpchanged", player:get_player_name(), hp_change, reason } })
+  mineysocket.send_event("player_hpchanged", { player:get_player_name(), hp_change, reason })
 end, false)
 minetest.register_on_dieplayer(function(player, reason)
-  mineysocket.send_event({ event = { "player_died", player:get_player_name(), reason } })
+  mineysocket.send_event("player_died", { player:get_player_name(), reason })
 end)
 minetest.register_on_respawnplayer(function(player)
-  mineysocket.send_event({ event = { "player_respawned", player:get_player_name() } })
+  mineysocket.send_event("player_respawned", { player:get_player_name() })
 end)
 minetest.register_on_joinplayer(function(player)
-  mineysocket.send_event({ event = { "player_joined", player:get_player_name() } })
+  mineysocket.send_event("player_joined", { player:get_player_name() })
 end)
 minetest.register_on_leaveplayer(function(player, timed_out)
-  mineysocket.send_event({ event = { "player_left", player:get_player_name(), timed_out } })
+  mineysocket.send_event("player_left", { player:get_player_name(), timed_out })
 end)
 minetest.register_on_auth_fail(function(name, ip)
-  mineysocket.send_event({ event = { "auth_failed", name, ip } })
+  mineysocket.send_event("auth_failed", { name, ip })
 end)
 minetest.register_on_cheat(function(player, cheat)
-  mineysocket.send_event({ event = { "player_cheated", player:get_player_name(), cheat } })
+  mineysocket.send_event("player_cheated", { player:get_player_name(), cheat })
 end)
 minetest.register_on_chat_message(function(name, message)
-  mineysocket.send_event({ event = { "chat_message", name, message } })
+  mineysocket.send_event("chat_message", { name, message })
 end)
 -- END global event registration
 
