@@ -143,37 +143,37 @@ You can register for the following events.
 
 ##### The server was gracefully stopped
 ```
-<<< {"event": ["shutdown"]}\n
+<<< { "event" = "shutdown" }\n
 ```
 
 #####  A player's health points changed
 ```
-<<< {"event": ["player_hpchanged", "<playername>", "<hp change>", {'type': '<reason>', 'from': '<player or engine>'}]}\n
+<<< {"event" = "player_hpchanged", params = ["player_hpchanged", "<playername>", "<hp change>", {'type': '<reason>', 'from': '<player or engine>'}]}\n
 ```
 
 ##### A player died
 ```
-<<< {"event": ["player_died", "<playername>", "<reason>"]}\n
+<<< {"event" = "player_died", params = ["<playername>", "<reason>"]}\n
 ```
 
 ##### A player respawned
 ```
-<<< {"event": ["player_respawned", "<playername>"]}\n
+<<< {"event" = "player_respawned", params = ["<playername>"]}\n
 ```
 
 ##### A player joined
 ```
-<<< {"event": ["player_joined", "<playername>"]}\n
+<<< {"event" = "player_joined", params = ["<playername>"]}\n
 ```
 
 ##### A player left
 ```
-<<< {"event": ["player_left", "<playername>"]}\n
+<<< {"event"= "player_left", params = ["<playername>"]}\n
 ```
 
 ##### An authentication failed
 ```
-<<< {"event": ["auth_failed", "<name>", "<ip>"]}\n
+<<< {"event" = "auth_failed", params = ["<name>", "<ip>"]}\n
 ```
 
 ##### A player cheated
@@ -187,10 +187,25 @@ With one of the following types
 * `dug_unbreakable`
 * `dug_too_fast`
 ```
-<<< {"event": ["player_cheated", "<playername>", {"type": "<type>"}]}\n
+<<< {"event" = "player_cheated", params = ["<playername>", {"type": "<type>"}]}\n
 ```
 
 ##### A new chat message
 ```
-<<< {"event": ["chat_message", "<name>", "<message>"]}\n
+<<< {"event" = "chat_message", params = ["<name>", "<message>"]}\n
+```
+
+##### A node was placed
+```
+<<< {"event" = "node_placed", params = [<pos>, <newnode>, <playername>, <oldnode>, <itemstack>, <pointed_thing>]}\n
+```
+
+##### A node was dug
+```
+<<< {"event" = "node_dug", params = [<pos>, <oldnode>, <playername>]}\n
+```
+
+##### A node was punched
+```
+<<< {"event" = "node_punched", params = [<pos>, <node>, <playername>, <pointed_thing>]}\n
 ```

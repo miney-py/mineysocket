@@ -413,6 +413,30 @@ end)
 minetest.register_on_chat_message(function(name, message)
   mineysocket.send_event("chat_message", { name, message })
 end)
+minetest.register_on_placenode(function(pos, newnode, placer, oldnode, itemstack, pointed_thing)
+  mineysocket.send_event("node_placed", { pos, newnode, placer:get_player_name(), oldnode, itemstack:to_table(), pointed_thing })
+end)
+minetest.register_on_dignode(function(pos, oldnode, digger)
+  mineysocket.send_event("node_dug", { pos, oldnode, digger:get_player_name() })
+end)
+minetest.register_on_punchnode(function(pos, node, puncher, pointed_thing)
+  mineysocket.send_event("node_punched", { pos, node, puncher:get_player_name(), pointed_thing })
+end)  -- document
+-- register_on_generated
+-- register_on_newplayer
+-- register_on_punchplayer
+-- register_on_rightclickplayer
+-- register_on_prejoinplayer
+-- register_on_player_receive_fields
+-- register_on_craft
+-- register_craft_predict
+-- register_allow_player_inventory_action
+-- register_on_protection_violation
+-- register_on_item_eat
+-- register_on_priv_grant
+-- register_on_priv_revoke
+-- register_can_bypass_userlimit
+-- register_on_modchannel_message
 -- END global event registration
 
 
