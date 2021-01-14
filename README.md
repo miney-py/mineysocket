@@ -12,6 +12,10 @@ That allows you to write a socket client in your favorite language to wrap api f
 * luasockets
 * lua-cjson
 
+### Running with docker
+
+Look here: [Documentation](docker/README.md)
+
 ### Installation with Windows
 
 It's more complicated, because you can't just put some dlls in the right place. 

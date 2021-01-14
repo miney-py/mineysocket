@@ -1,5 +1,10 @@
 # Minetest + Mineysocket server in docker
 
+To run the dev branch:
+```
+docker run -p 29999:29999 -p 30000:30000/udp --name mineysocket miney/mineysocket
+```
+
 ## Environment variables
 
 All values in the minetest.conf can be changed with environment variables.
