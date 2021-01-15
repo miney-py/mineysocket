@@ -181,6 +181,9 @@ mineysocket.receive = function()
           end
         end
 
+        -- ignore empty lines
+        if data == socket_clients[clientid].eom then return end
+
         -- simple alive check
         if data == "ping" .. socket_clients[clientid].eom then
           socket_clients[clientid].socket:send("pong" .. socket_clients[clientid].eom)
@@ -191,7 +194,7 @@ mineysocket.receive = function()
         local status, input = pcall(mineysocket.json.decode, data)
         if not status then
           minetest.log("error", "mineysocket: " .. mineysocket.json.encode({ error = input }))
-          mineysocket.log("error", "JSON-Error: " .. input, ip, port)
+          mineysocket.log("error", "JSON-Error: " .. input, clientid)
           mineysocket.send(clientid, mineysocket.json.encode({ error = "JSON decode error - " .. input }))
           return
         end
@@ -204,7 +207,7 @@ mineysocket.receive = function()
 
           -- we run lua code
           if input["lua"] then
-            result = run_lua(input, clientid, ip, port)
+            result = run_lua(input, clientid)
           end
 
           -- append event to callback list
@@ -219,7 +222,7 @@ mineysocket.receive = function()
 
           -- handle reauthentication
           if input["playername"] and input["password"] then
-            result = mineysocket.authenticate(input, clientid, ip, port, socket_clients[clientid].socket)
+            result = mineysocket.authenticate(input, clientid, socket_clients[clientid].socket)
           end
 
           -- reattach id
@@ -237,7 +240,7 @@ mineysocket.receive = function()
         else
           -- we need authentication
           if input["playername"] and input["password"] then
-            mineysocket.send(clientid, mineysocket.authenticate(input, clientid, ip, port, socket_clients[clientid].socket))
+            mineysocket.send(clientid, mineysocket.json.encode(mineysocket.authenticate(input, clientid, socket_clients[clientid].socket)))
           else
             mineysocket.send(clientid, mineysocket.json.encode({ error = "Unknown command" }))
           end
@@ -249,7 +252,7 @@ end
 
 
 -- run lua code send by the client
-function run_lua(input, clientid, ip, port)
+function run_lua(input, clientid)
   local start_time, err
   local output = {}
 
@@ -257,9 +260,9 @@ function run_lua(input, clientid, ip, port)
 
   -- log the (shortend) code
   if string.len(input["lua"]) > 120 then
-    mineysocket.log("action", "execute: " .. string.sub(input["lua"], 0, 120) .. " ...", ip, port)
+    mineysocket.log("action", "execute: " .. string.sub(input["lua"], 0, 120) .. " ...", clientid)
   else
-    mineysocket.log("action", "execute: " .. input["lua"], ip, port)
+    mineysocket.log("action", "execute: " .. input["lua"], clientid)
   end
 
   -- run
@@ -275,9 +278,9 @@ function run_lua(input, clientid, ip, port)
       if mineysocket.debug then
         local json_output = mineysocket.json.encode(output)
         if string.len(json_output) > 120 then
-          mineysocket.log("action", string.sub(json_output, 0, 120) .. " ..." .. " in " .. (minetest.get_server_uptime() - start_time) .. " seconds", ip, port)
+          mineysocket.log("action", string.sub(json_output, 0, 120) .. " ..." .. " in " .. (minetest.get_server_uptime() - start_time) .. " seconds", clientid)
         else
-          mineysocket.log("action", json_output .. " in " .. (minetest.get_server_uptime() - start_time) .. " seconds", ip, port)
+          mineysocket.log("action", json_output .. " in " .. (minetest.get_server_uptime() - start_time) .. " seconds", clientid)
         end
       end
       return output
@@ -291,31 +294,31 @@ function run_lua(input, clientid, ip, port)
   -- send lua errors
   if err then
     output["error"] = err
-    mineysocket.log("error", "Error " .. err .. " in command", ip, port)
+    mineysocket.log("error", "Error " .. err .. " in command", clientid)
     return output
   end
 end
 
 
 -- authenticate clients
-mineysocket.authenticate = function(input, clientid, ip, port, socket)
+mineysocket.authenticate = function(input, clientid, socket)
     local player = minetest.get_auth_handler().get_auth(input["playername"])
 
     -- we skip authentication for 127.0.0.1 and just accept everything
-    if ip == "127.0.0.1" then
-      mineysocket.log("action", "Player '" .. input["playername"] .. "' connected successful", ip, port)
+    if string.find(clientid, "127.0.0.1")then
+      mineysocket.log("action", "Player '" .. input["playername"] .. "' connected successful", clientid)
       socket_clients[clientid].playername = input["playername"]
       return { result = { "auth_ok", clientid }, id = "auth" }
     else
       -- others need a valid playername and password
       if player and minetest.check_password_entry(input["playername"], player['password'], input["password"]) and minetest.check_player_privs(input["playername"], { server = true }) then
-        mineysocket.log("action", "Player '" .. input["playername"] .. "' authentication successful", ip, port)
+        mineysocket.log("action", "Player '" .. input["playername"] .. "' authentication successful", clientid)
         socket_clients[clientid].auth = true
         socket_clients[clientid].playername = input["playername"]
         socket_clients[clientid].events = {}
         return { result = { "auth_ok", clientid }, id = "auth" }
       else
-        mineysocket.log("error", "Wrong playername ('" .. input["playername"] .. "') or password", ip, port)
+        mineysocket.log("error", "Wrong playername ('" .. input["playername"] .. "') or password", clientid)
         socket_clients[clientid].auth = false
         return { error = "authentication error" }
       end
@@ -422,9 +425,9 @@ end)
 minetest.register_on_punchnode(function(pos, node, puncher, pointed_thing)
   mineysocket.send_event("node_punched", { pos, node, puncher:get_player_name(), pointed_thing })
 end)  -- document
+-- register_on_punchplayer
 -- register_on_generated
 -- register_on_newplayer
--- register_on_punchplayer
 -- register_on_rightclickplayer
 -- register_on_prejoinplayer
 -- register_on_player_receive_fields
@@ -441,11 +444,11 @@ end)  -- document
 
 
 -- just a logging function
-mineysocket.log = function(level, text, ip, port)
+mineysocket.log = function(level, text, clientid)
   if mineysocket.debug or level ~= "action" then
     if text then
-      if ip and port then
-        minetest.log(level, "mineysocket: " .. text .. " from " .. ip .. ":" .. port)
+      if clientid then
+        minetest.log(level, "mineysocket: " .. text .. " from " .. clientid)
       else
         minetest.log(level, "mineysocket: " .. ": " .. text)
       end
