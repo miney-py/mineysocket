@@ -223,7 +223,7 @@ mineysocket.receive = function()
           end
 
           -- reattach id
-          if input["id"] then
+          if input["id"] and result ~= false then
             result["id"] = input["id"]
           end
 
