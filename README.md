@@ -10,12 +10,11 @@ That allows you to write a socket client in your favorite language to wrap api f
 ## Requirements
 
 * luasockets
-* lua-cjson
 
 ### Installation with Windows
 
 It's more complicated, because you can't just put some dlls in the right place. 
-You have to recompile minetest together with luasocket and lua-cjson. 
+You have to recompile minetest together with luasocket. 
 
 Luckily there are some scripts to do that for you or you just download a precompiled binary that includes all you need.
 
@@ -35,7 +34,7 @@ Luckily there are some scripts to do that for you or you just download a precomp
 
 The latest minetest version is in the backport repository for buster, so it's very easy to install: https://wiki.minetest.net/Setting_up_a_server/Debian
 ```
-apt install lua-socket lua-cjson
+apt install lua-socket
 cd /var/games/minetest-server/.minetest/mods
 git clone git@github.com:miney-py/mineysocket.git
 ```
@@ -45,7 +44,7 @@ load_mod_mineysocket = true
 ```
 * Edit /etc/minetest/minetest.conf
   * name = \<your_playername\>  # This gives you all privileges on your server
-  * secure.trusted_mods = mineysocket  # This is needed for luasocket and lua-cjson
+  * secure.trusted_mods = mineysocket  # This is needed for luasocket
   * Optional but recommended:
     * enable_rollback_recording = true  # This allows you to clean up your world
 * Connect at least once with minetest to your server and login with a username + password, to get you registered.
