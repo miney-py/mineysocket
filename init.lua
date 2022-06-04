@@ -46,10 +46,6 @@ local luasocket = ie.require("socket.core")
 if not luasocket then
   error("luasocket is not installed or was not found...")
 end
-mineysocket.json = ie.require("cjson")
-if not mineysocket.json then
-  error("lua-cjson is not installed or was not found...")
-end
 
 -- setup network server
 local server, err = luasocket.tcp()
@@ -188,11 +184,11 @@ mineysocket.receive = function()
         end
 
         -- parse data as json
-        local status, input = pcall(mineysocket.json.decode, data)
+        local status, input = pcall(minetest.parse_json, data)
         if not status then
-          minetest.log("error", "mineysocket: " .. mineysocket.json.encode({ error = input }))
+          minetest.log("error", "mineysocket: " .. minetest.write_json({ error = input }))
           mineysocket.log("error", "JSON-Error: " .. input, ip, port)
-          mineysocket.send(clientid, mineysocket.json.encode({ error = "JSON decode error - " .. input }))
+          mineysocket.send(clientid, minetest.write_json({ error = "JSON decode error - " .. input }))
           return
         end
 
@@ -229,9 +225,9 @@ mineysocket.receive = function()
 
           -- send result
           if result ~= false then
-            mineysocket.send(clientid, mineysocket.json.encode(result))
+            mineysocket.send(clientid, minetest.write_json(result))
           else
-            mineysocket.send(clientid, mineysocket.json.encode({ error = "Unknown command" }))
+            mineysocket.send(clientid, minetest.write_json({ error = "Unknown command" }))
           end
 
         else
@@ -239,7 +235,7 @@ mineysocket.receive = function()
           if input["playername"] and input["password"] then
             mineysocket.send(clientid, mineysocket.authenticate(input, clientid, ip, port, socket_clients[clientid].socket))
           else
-            mineysocket.send(clientid, mineysocket.json.encode({ error = "Unknown command" }))
+            mineysocket.send(clientid, minetest.write_json({ error = "Unknown command" }))
           end
         end
       end
@@ -273,7 +269,7 @@ function run_lua(input, clientid, ip, port)
     if status then
       output["result"] = { result1, result2, result3, result4, result5 }
       if mineysocket.debug then
-        local json_output = mineysocket.json.encode(output)
+        local json_output = minetest.write_json(output)
         if string.len(json_output) > 120 then
           mineysocket.log("action", string.sub(json_output, 0, 120) .. " ..." .. " in " .. (minetest.get_server_uptime() - start_time) .. " seconds", ip, port)
         else
@@ -374,8 +370,8 @@ mineysocket.send_event = function(data)
 
   for clientid, values in pairs(socket_clients) do
     if has_value(socket_clients[clientid].events, data["event"][1]) then
-      mineysocket.log("action", "Sending event: " .. mineysocket.json.encode(data["event"][1]))
-      mineysocket.send(clientid, mineysocket.json.encode(data))
+      mineysocket.log("action", "Sending event: " .. minetest.write_json(data["event"][1]))
+      mineysocket.send(clientid, minetest.write_json(data))
     end
   end
 end
