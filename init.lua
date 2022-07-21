@@ -237,7 +237,7 @@ mineysocket.receive = function()
         else
           -- we need authentication
           if input["playername"] and input["password"] then
-            mineysocket.send(clientid, mineysocket.authenticate(input, clientid, ip, port, socket_clients[clientid].socket))
+            mineysocket.send(clientid, mineysocket.json.encode(mineysocket.authenticate(input, clientid, ip, port, socket_clients[clientid].socket)))
           else
             mineysocket.send(clientid, mineysocket.json.encode({ error = "Unknown command" }))
           end
@@ -366,6 +366,11 @@ end
 -- send event data to clients, who are registered for this event
 mineysocket.send_event = function(data)
   local function has_value (tab, val)
+    -- if tab is nil return false
+    if tab == nil then
+      return false
+    end
+
     for index, value in ipairs(tab) do
         if value == val then return true end
     end
