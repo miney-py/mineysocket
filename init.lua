@@ -237,7 +237,7 @@ mineysocket.receive = function()
         else
           -- we need authentication
           if input["playername"] and input["password"] then
-            mineysocket.send(clientid, mineysocket.authenticate(input, clientid, ip, port, mineysocket["socket_clients"][clientid].socket))
+            mineysocket.send(clientid, mineysocket.json.encode(mineysocket.authenticate(input, clientid, ip, port, mineysocket["socket_clients"][clientid].socket)))
           else
             mineysocket.send(clientid, mineysocket.json.encode({ error = "Unknown command" }))
           end
