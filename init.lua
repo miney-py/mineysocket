@@ -74,7 +74,7 @@ if not mineysocket.host_ip or not mineysocket.host_port then
   error("mineysocket: Couldn't open server port!")
 end
 
-local socket_clients = {}  -- a table with all connected clients with there options
+mineysocket["socket_clients"] = {}  -- a table with all connected clients with there options
 
 -- receive network data and process them
 minetest.register_globalstep(function(dtime)
@@ -85,8 +85,8 @@ end)
 -- Clean shutdown
 minetest.register_on_shutdown(function()
   minetest.log("action", "mineysocket: Closing port...")
-  for clientid, client in pairs(socket_clients) do
-    socket_clients[clientid].socket:close()
+  for clientid, client in pairs(mineysocket["socket_clients"]) do
+    mineysocket["socket_clients"][clientid].socket:close()
   end
   server:close()
 end)
@@ -106,19 +106,19 @@ mineysocket.receive = function()
 
     client:settimeout(0)
     -- register the new client
-    if not socket_clients[clientid] then
-      socket_clients[clientid] = {}
-      socket_clients[clientid].socket = client
-      socket_clients[clientid].last_message = minetest.get_server_uptime()
-      socket_clients[clientid].buffer = ""
-      socket_clients[clientid].eom = nil
+    if not mineysocket["socket_clients"][clientid] then
+      mineysocket["socket_clients"][clientid] = {}
+      mineysocket["socket_clients"][clientid].socket = client
+      mineysocket["socket_clients"][clientid].last_message = minetest.get_server_uptime()
+      mineysocket["socket_clients"][clientid].buffer = ""
+      mineysocket["socket_clients"][clientid].eom = nil
 
       if ip == "127.0.0.1" then  -- skip authentication for 127.0.0.1
-        socket_clients[clientid].auth = true
-        socket_clients[clientid].playername = "localhost"
-        socket_clients[clientid].events = {}
+        mineysocket["socket_clients"][clientid].auth = true
+        mineysocket["socket_clients"][clientid].playername = "localhost"
+        mineysocket["socket_clients"][clientid].events = {}
       else
-        socket_clients[clientid].auth = false
+        mineysocket["socket_clients"][clientid].auth = false
       end
     end
   else
@@ -129,16 +129,16 @@ mineysocket.receive = function()
   end
 
   -- receive data
-  for clientid, client in pairs(socket_clients) do
-    local complete_data, err, data = socket_clients[clientid].socket:receive("*a")
+  for clientid, client in pairs(mineysocket["socket_clients"]) do
+    local complete_data, err, data = mineysocket["socket_clients"][clientid].socket:receive("*a")
     -- there are never complete_data, cause we don't receive lines
     -- Note: err is "timeout" every time when there are no client data, cause we set timeout to 0 and
     -- we don't want to wait and block lua/minetest for clients to send data
     if err ~= "timeout" then
-      socket_clients[clientid].socket:close()
+      mineysocket["socket_clients"][clientid].socket:close()
       -- cleanup
       if err == "closed" then
-        socket_clients[clientid] = nil
+        mineysocket["socket_clients"][clientid] = nil
         mineysocket.log("action", "Connection to ".. clientid .." was closed")
         return
       else
@@ -147,43 +147,43 @@ mineysocket.receive = function()
     end
     if data and data ~= "" then
       -- store time of the last message for cleanup of old connection
-      socket_clients[clientid].last_message = minetest.get_server_uptime()
+      mineysocket["socket_clients"][clientid].last_message = minetest.get_server_uptime()
 
       if not string.find(data, "\n") then
         -- fill a buffer and wait for the linebreak
-        if not socket_clients[clientid].buffer then
-          socket_clients[clientid].buffer = data
+        if not mineysocket["socket_clients"][clientid].buffer then
+          mineysocket["socket_clients"][clientid].buffer = data
         else
-          socket_clients[clientid].buffer = socket_clients[clientid].buffer .. data
+          mineysocket["socket_clients"][clientid].buffer = mineysocket["socket_clients"][clientid].buffer .. data
         end
-        if socket_clients[clientid].auth == false then  -- limit buffer size for unauthenticated connections
-          if socket_clients[clientid].buffer and string.len(socket_clients[clientid].buffer) + string.len(data) > 10 then
-            socket_clients[clientid].buffer = nil
+        if mineysocket["socket_clients"][clientid].auth == false then  -- limit buffer size for unauthenticated connections
+          if mineysocket["socket_clients"][clientid].buffer and string.len(mineysocket["socket_clients"][clientid].buffer) + string.len(data) > 10 then
+            mineysocket["socket_clients"][clientid].buffer = nil
           end
         end
         mineysocket.receive()
         return
       else
         -- get data from buffer and reset em
-        if socket_clients[clientid]["buffer"] then
-          data = socket_clients[clientid].buffer .. data
-          socket_clients[clientid].buffer = nil
+        if mineysocket["socket_clients"][clientid]["buffer"] then
+          data = mineysocket["socket_clients"][clientid].buffer .. data
+          mineysocket["socket_clients"][clientid].buffer = nil
         end
 
         mineysocket.log("action", "Received: \n" .. data)
 
         -- we try to find the eom message terminator for this session
-        if socket_clients[clientid].eom == nil then
+        if mineysocket["socket_clients"][clientid].eom == nil then
           if string.sub(data, -2) == "\r\n" then
-            socket_clients[clientid].eom = "\r\n"
+            mineysocket["socket_clients"][clientid].eom = "\r\n"
           else
-            socket_clients[clientid].eom = "\n"
+            mineysocket["socket_clients"][clientid].eom = "\n"
           end
         end
 
         -- simple alive check
-        if data == "ping" .. socket_clients[clientid].eom then
-          socket_clients[clientid].socket:send("pong" .. socket_clients[clientid].eom)
+        if data == "ping" .. mineysocket["socket_clients"][clientid].eom then
+          mineysocket["socket_clients"][clientid].socket:send("pong" .. mineysocket["socket_clients"][clientid].eom)
           return
         end
 
@@ -197,7 +197,7 @@ mineysocket.receive = function()
         end
 
         -- is it a known client, or do we need authentication?
-        if socket_clients[clientid].auth == true then
+        if mineysocket["socket_clients"][clientid].auth == true then
           ----------------------------
           -- commands:
           ----------------------------
@@ -219,11 +219,11 @@ mineysocket.receive = function()
 
           -- handle reauthentication
           if input["playername"] and input["password"] then
-            result = mineysocket.authenticate(input, clientid, ip, port, socket_clients[clientid].socket)
+            result = mineysocket.authenticate(input, clientid, ip, port, mineysocket["socket_clients"][clientid].socket)
           end
 
           -- reattach id
-          if input["id"] then
+          if input["id"] and result ~= false then
             result["id"] = input["id"]
           end
 
@@ -237,7 +237,7 @@ mineysocket.receive = function()
         else
           -- we need authentication
           if input["playername"] and input["password"] then
-            mineysocket.send(clientid, mineysocket.authenticate(input, clientid, ip, port, socket_clients[clientid].socket))
+            mineysocket.send(clientid, mineysocket.json.encode(mineysocket.authenticate(input, clientid, ip, port, mineysocket["socket_clients"][clientid].socket)))
           else
             mineysocket.send(clientid, mineysocket.json.encode({ error = "Unknown command" }))
           end
@@ -304,19 +304,19 @@ mineysocket.authenticate = function(input, clientid, ip, port, socket)
     -- we skip authentication for 127.0.0.1 and just accept everything
     if ip == "127.0.0.1" then
       mineysocket.log("action", "Player '" .. input["playername"] .. "' connected successful", ip, port)
-      socket_clients[clientid].playername = input["playername"]
+      mineysocket["socket_clients"][clientid].playername = input["playername"]
       return { result = { "auth_ok", clientid }, id = "auth" }
     else
       -- others need a valid playername and password
       if player and minetest.check_password_entry(input["playername"], player['password'], input["password"]) and minetest.check_player_privs(input["playername"], { server = true }) then
         mineysocket.log("action", "Player '" .. input["playername"] .. "' authentication successful", ip, port)
-        socket_clients[clientid].auth = true
-        socket_clients[clientid].playername = input["playername"]
-        socket_clients[clientid].events = {}
+        mineysocket["socket_clients"][clientid].auth = true
+        mineysocket["socket_clients"][clientid].playername = input["playername"]
+        mineysocket["socket_clients"][clientid].events = {}
         return { result = { "auth_ok", clientid }, id = "auth" }
       else
         mineysocket.log("error", "Wrong playername ('" .. input["playername"] .. "') or password", ip, port)
-        socket_clients[clientid].auth = false
+        mineysocket["socket_clients"][clientid].auth = false
         return { error = "authentication error" }
       end
     end
@@ -325,18 +325,18 @@ end
 
 -- send data to the client
 mineysocket.send = function(clientid, data)
-  local data = data .. socket_clients[clientid]["eom"]  -- eom is the terminator
+  local data = data .. mineysocket["socket_clients"][clientid]["eom"]  -- eom is the terminator
   local size = string.len(data)
 
   local chunk_size = 4096
 
   if size < chunk_size then
     -- we send in one package
-    socket_clients[clientid].socket:send(data)
+    mineysocket["socket_clients"][clientid].socket:send(data)
   else
     -- we split into multiple packages
     for i = 0, math.floor(size / chunk_size) do
-      socket_clients[clientid].socket:send(
+      mineysocket["socket_clients"][clientid].socket:send(
         string.sub(data, i * chunk_size, chunk_size + (i * chunk_size) - 1)
       )
       luasocket.sleep(0.001)  -- Or buffer fills to fast
@@ -347,15 +347,15 @@ end
 
 -- register for event
 mineysocket.register_event = function(clientid, eventname)
-  socket_clients[clientid].events[#socket_clients[clientid].events+1] = eventname
+  mineysocket["socket_clients"][clientid].events[#mineysocket["socket_clients"][clientid].events+1] = eventname
   return { result = "ok" }
 end
 
 -- unregister for event
 mineysocket.unregister_event = function(clientid, eventname)
-  for index, value in pairs(socket_clients[clientid].events) do
+  for index, value in pairs(mineysocket["socket_clients"][clientid].events) do
     if value == eventname then
-      table.remove( socket_clients[clientid].events, index )
+      table.remove( mineysocket["socket_clients"][clientid].events, index )
       break
     end
   end
@@ -365,17 +365,18 @@ end
 
 -- send event data to clients, who are registered for this event
 mineysocket.send_event = function(data)
-  local function has_value (tab, val)
-    for index, value in ipairs(tab) do
-        if value == val then return true end
-    end
-    return false
-  end
+  for clientid, values in pairs(mineysocket["socket_clients"]) do
+    local client_events = mineysocket["socket_clients"][clientid].events
 
-  for clientid, values in pairs(socket_clients) do
-    if has_value(socket_clients[clientid].events, data["event"][1]) then
-      mineysocket.log("action", "Sending event: " .. mineysocket.json.encode(data["event"][1]))
-      mineysocket.send(clientid, mineysocket.json.encode(data))
+    for _, event_data in ipairs(client_events) do
+        local registered_event_name = event_data["event"]
+        local received_event_name = data["event"][1]
+
+        if registered_event_name == received_event_name then
+            mineysocket.log("action", "Sending event: " .. received_event_name)
+            mineysocket.send(clientid, mineysocket.json.encode(data))
+            break
+        end
     end
   end
 end
